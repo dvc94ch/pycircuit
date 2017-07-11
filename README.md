@@ -4,8 +4,6 @@ Attempts to make designing and building electronics easy and fun by
 making design reuse and collaboration simple and making design intent
 explicit.
 
-It's guiding principles are code is the best documentation and GUI's
-are stupid.
 
 ## Devices
 
@@ -88,7 +86,7 @@ def rgb():
 
     for net in ['RED', 'GREEN', 'BLUE']:
         Net(net) + Ref(net)['IN']
-        Net('GND') + Refs()['GND']
+    Net('GND') + Refs()['GND']
 
 @circuit('TOP')
 def top():
