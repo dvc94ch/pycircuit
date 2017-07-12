@@ -114,24 +114,65 @@ class GridPads(object):
 
     def __iter__(self):
         grid_radius = (self.num - 1) * self.pitch / 2
+        prefix = GridPads.default_prefix_generator()
         for row in range(self.num):
-            prefix = ''
-            for i in range(int(row / 26) + 1):
-                prefix += chr(row % 26 + ord('A'))
             radius = row * self.pitch - grid_radius
-            for pad in PadArray(self.num, self.pitch, radius, 0, prefix):
+            for pad in PadArray(self.num, self.pitch, radius, 0,
+                                prefix=next(prefix)):
                 yield pad
+
+    @staticmethod
+    def default_prefix_generator():
+        for i in range(27):
+            for j in range(27):
+                for k in range(26):
+                    label = chr(k + ord('A'))
+                    if j > 0:
+                        label = chr(j + ord('A') - 1) + label
+                    if i > 0:
+                        label = chr(i + ord('A') - 1) + label
+                    yield label
 
 
 class StaggeredGridPads(object):
-    pass
+    def __init__(self, num, pitch):
+        assert num % 2 == 1
+        self.num = num
+        self.pitch = pitch
+        self.grid = GridPads(num, pitch)
+
+    def __iter__(self):
+        for i, pad in enumerate(self.grid):
+            if i % 2 == 1:
+                continue
+            yield pad
 
 
 class PerimeterPads(object):
-    def __init__(self, num, perimeter, inner=0):
+    def __init__(self, num, pitch, perimeter, inner=0):
         self.num = num
+        self.pitch = pitch
         self.perimeter = perimeter
         self.inner = inner
+        self.grid = GridPads(num, pitch)
+
+    def __iter__(self):
+        pad_iter = iter(self.grid)
+        perimeter_end = self.perimeter - 1
+        perimeter_start = self.num - self.perimeter
+        inner_start = int((self.num - self.inner) / 2 - 1)
+        inner_end = inner_start + self.inner + 1
+        for col in range(self.num):
+            for row in range(self.num):
+                pad = next(pad_iter)
+                if row > inner_start and row < inner_end and \
+                   col > inner_start and col < inner_end:
+                    yield pad
+                else:
+                    if row > perimeter_end and row < perimeter_start and \
+                       col > perimeter_end and col < perimeter_start:
+                        continue
+                    yield pad
 
 
 class Courtyard(object):
