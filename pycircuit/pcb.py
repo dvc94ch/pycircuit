@@ -283,6 +283,7 @@ class Pcb(object):
         self.circuit = circuit
         self.net_class = NetClass(segment_width=0.25, via_diameter=0.8, via_drill=0.6)
         self.layers = 1
+        self.edge_clearance = 2
 
         # Current position, layer and net used when creating segments and vias.
         self.pos = np.array([0, 0, 1])
@@ -314,6 +315,13 @@ class Pcb(object):
         self.height = self.bounds[3] - self.bounds[1]
 
         self.rbs.triangulate()
+
+    def outline(self):
+        left = self.bounds[0] - self.edge_clearance
+        top = self.bounds[1] - self.edge_clearance
+        right = self.bounds[2] + self.edge_clearance
+        bottom = self.bounds[3] + self.edge_clearance
+        return left, top, right, bottom
 
     def resolve_pad(self, node, pad):
         node = self.circuit.node_by_name(node)

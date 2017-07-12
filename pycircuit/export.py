@@ -5,7 +5,7 @@ from pycircuit.circuit import *
 from pycircuit.package import *
 from pykicad.module import Module as kModule, Pad as kPad, Drill as kDrill
 from pykicad.module import Line as kLine, Text as kText
-from pykicad.pcb import Pcb as kPcb, Net as kNet
+from pykicad.pcb import Pcb as kPcb, Net as kNet, Line as kGrLine
 from pykicad.pcb import Segment as kSegment, Via as kVia
 from shapely.ops import polygonize
 
@@ -21,8 +21,8 @@ def export(string, filename, extension):
         f.write(string)
 
 
-def polygon_to_lines(polygon):
-    coords = polygon.exterior.coords
+def polygon_to_lines(coords):
+    coords.append(coords[0])
     for i in range(len(coords) - 1):
         yield coords[i], coords[i + 1]
 
@@ -81,12 +81,12 @@ def package_from_module(kmodule):
 
 
 def package_to_module(package):
-    lines = []
-    for start, end in polygon_to_lines(package.courtyard.polygon):
-        lines.append(kLine(list(start), list(end),
+    kmod = kModule(package.name, layer='F.Cu', attr='smd')
+
+    for start, end in polygon_to_lines(package.courtyard.coords):
+        kmod.lines.append(kLine(list(start), list(end),
                            layer='F.CrtYd', width=0.05))
 
-    pads = []
     for pad in package.pads:
         pad_at = list(pad.location)
         pad_at[2] = pad.angle
@@ -100,18 +100,18 @@ def package_to_module(package):
             pad_layers = ['*.Cu', 'F.Mask', 'B.Mask']
             drill = kDrill(pad.drill)
 
-        pads.append(kPad(pad.name, type=pad_type, shape=pad.shape,
-                         size=list(pad.size), at=pad_at, drill=drill,
-                         layers=pad_layers))
+        kmod.pads.append(kPad(pad.name, type=pad_type, shape=pad.shape,
+                              size=list(pad.size), at=pad_at, drill=drill,
+                              layers=pad_layers))
 
     text_radius = package.size()[1] / 2 + 0.5
     ref = kText(type='reference', layer='F.SilkS', thickness=0.15, size=[1, 1],
                 text=package.name, at=[0, -text_radius - 0.35])
     value = kText(type='value', layer='F.Fab', thickness=0.15, size=[1, 1],
                   text=package.name, at=[0, text_radius + 0.25])
+    kmod.texts = [ref, value]
 
-    return kModule(package.name, layer='F.Cu', attr='smd',
-                   pads=pads, lines=lines, texts=[ref, value])
+    return kmod
 
 
 def node_to_module(node):
@@ -154,6 +154,12 @@ def pcb_to_kicad(pcb):
                         size=via.diameter(), drill=via.drill())
             kpcb.vias.append(kvia)
 
+    left, top, right, bottom = pcb.outline()
+    outline = [(left, top), (right, top), (right, bottom), (left, bottom)]
+
+    for start, end in polygon_to_lines(outline):
+        kpcb.lines.append(kGrLine(list(start), list(end),
+                             layer='Edge.Cuts', width=0.15))
 
     return kpcb
 
@@ -232,9 +238,9 @@ def export_pcb_to_svg(pcb, filename=None):
     trans = 'translate(%f %f)'
     rot = 'rotate(%f)'
 
+    left, top, right, bottom = pcb.outline()
     svg = xml.Element('svg', width='100%', height='100%',
-                      viewBox='%f %f %f %f' % (pcb.bounds[0] - 1, pcb.bounds[1] - 1,
-                                               pcb.width + 2, pcb.height + 2),
+                      viewBox='%f %f %f %f' % (left, top, right - left, bottom - top),
                       xmlns='http://www.w3.org/2000/svg')
 
     for i, ij in pcb.rbs.graph.edges.items():
