@@ -1,89 +1,161 @@
-class Function(object):
+from collections import defaultdict
+
+
+class Fun(object):
     '''Function represents a function of a Pin.'''
 
-    def __init__(self, name, bus=None):
-        '''A Function has a name and optionally belongs to a Bus.'''
+    BIDIR, INPUT, OUTPUT = range(3)
+
+    def __init__(self, bus_or_name, bus_type_or_dir=None, func=None):
+        '''A Function has a name, a direction and optionally belongs to a Bus.
+
+        Examples:
+        Fun('GPIO')
+        Fun('VCC', Fun.INPUT)
+        Fun('UART0', 'UART', 'TX')
+        Fun('JTAG', 'TDO')
+        '''
 
         self.pin = None
-        self.name = name
-        self.bus = bus
+
+        if not isinstance(bus_type_or_dir, str):
+            self.bus_name = None
+            self.bus = None
+            self.bus_func = None
+            self.name = bus_or_name
+            self.dir = Fun.BIDIR if bus_type_or_dir is None else bus_type_or_dir
+        else:
+            if func is not None:
+                self.bus_name = bus_or_name
+                self.bus_func = func
+                self.bus = Bus.bus_by_type(bus_type_or_dir)
+            else:
+                self.bus_name = bus_or_name
+                self.bus_func = bus_type_or_dir
+                self.bus = Bus.bus_by_type(bus_or_name)
+            self.name = self.bus.type + '_' + self.bus_func
+            self.dir = self.bus.function_by_name(self.bus_func).dir
+
 
     def __str__(self):
-        '''Returns the name of the Function.'''
+        '''Returns the name (NAME or BUSTYPE_NAME)'''
 
         return self.name
+
+    def __repr__(self):
+        '''Returns a string representation (BUSNAME__DIR_NAME__PIN)'''
+
+        dir = 'io'
+        if self.dir == Fun.INPUT:
+            dir = 'i'
+        elif self.dir == Fun.OUTPUT:
+            dir = 'o'
+
+        if self.bus is None:
+            bus = ''
+        else:
+            bus = self.bus_name + '__'
+
+        if self.pin is None:
+            pin = ''
+        else:
+            pin = '__' + self.pin.name
+
+        return '%s%s_%s%s' % (bus, dir, str(self), pin)
 
 
 class Bus(object):
     '''Bus represents a collection of functions.'''
 
-    def __init__(self, name, type, function=None):
+    busses = []
+
+    def __init__(self, type, *functions):
         '''A Bus has a name a type and a list of functions. The constructor
-        takes a name and a function or a name a type and a function.'''
+        takes a name and a function or a name a type and a function.
 
-        if function is None:
-            function = type
-            type = name
+        Examples:
+        # Create a JTAG Bus
+        Bus('JTAG', Fun('TCK', Fun.INPUT), Fun('TDO', Fun.OUTPUT),
+                    Fun('TMS', Fun.INPUT), Fun('TDI', Fun.INPUT))
+        # Create a UART Bus
+        Bus('UART', Fun('RX', Fun.INPUT), Fun('TX', Fun.OUTPUT))
+        '''
 
-        self.name = name
         self.type = type
-        self.functions = []
-        self.functions.append(Function(type + '_' + function, self))
+        self.functions = functions
+        self.register_bus(self)
 
-    def add_function(self, func):
+    def add_function(self, function):
         '''Adds a function to bus.'''
 
-        assert isinstance(func, Function)
-        assert func.bus.name == self.name
-        assert func.bus.type == self.type
-
+        func = Function(function)
         func.bus = self
+        func.dir = self.bus_types[self.type][self.name]
         self.functions.append(func)
 
     def function_by_name(self, name):
-        '''Return a function with name type_name.'''
-
-        name = self.type + '_' + name
+        '''Return a function with name.'''
 
         for func in self.functions:
             if func.name == name:
                 return func
 
     def __str__(self):
-        '''Returns the name of the Bus.'''
+        '''Returns the type of the Bus.'''
 
-        return self.name
+        return self.type
 
     def __repr__(self):
         '''Returns a string representation of the Bus.'''
 
-        functions = [ '_'.join(str(func).split('_')[1:])
-                      for func in self.functions ]
+        functions = [func.name for func in self.functions]
         functions.sort()
-        #string = '%-6s (%s)' % (self.name, self.type)
 
-        return '%-20s (%s)' % (self.name, ' '.join(functions))
+        return '%-20s (%s)' % (self.type, ' '.join(functions))
+
+    @classmethod
+    def bus_by_type(cls, type):
+        '''Returns the Bus with type from registered busses.'''
+
+        for bus in cls.busses:
+            if bus.type == type:
+                return bus
+
+        raise IndexError('No Bus with type ' + type)
+
+    @classmethod
+    def register_bus(cls, bus):
+        '''Register a Bus.'''
+
+        try:
+            cls.bus_by_type(bus.type)
+            raise Exception('Bus with name %s exists' % bus.type)
+        except IndexError:
+            cls.busses.append(bus)
 
 
 class Pin(object):
     '''Pin represents a port of a device.'''
 
-    def __init__(self, name, *functions):
+    POWER, SIGNAL = range(2)
+
+    def __init__(self, name, *functions, descr=''):
         '''A Pin has a name and a list of functions. If no functions listed
         the Pin only supports a single Function which is named the same as the
         Pin. A Function is either a String or a Bus.'''
 
         self.name = name
+        self.descr = descr
         self.functions = []
+        self.domain = Pin.SIGNAL
 
         if len(functions) < 1:
-            self.functions.append(Function(name))
+            self.add_function(Fun(name))
         else:
             for func in functions:
                 if isinstance(func, str):
-                    self.add_function(Function(func))
-                elif isinstance(func, Bus):
-                    self.add_function(func.functions[0])
+                    func = Fun(func)
+                self.add_function(func)
 
     def add_function(self, function):
         '''Adds a Function to Pin.'''
@@ -122,22 +194,20 @@ class Device(object):
 
     devices = []
 
-    def __init__(self, name, *pins):
+    def __init__(self, name, descr='', pins=()):
         '''A Device has a name and a list of pins and busses. Busses are
         extracted from Pin functions and merged by name.'''
 
         self.name = name
+        self.descr = descr
         self.pins = []
-        self.busses = []
+        # A bus is a list of pins.
+        self.busses = defaultdict(list)
 
         for pin in pins:
             for func in pin.functions:
-                if func.bus is not None:
-                    bus = self.bus_by_name(func.bus.name)
-                    if bus is not None:
-                        bus.add_function(func)
-                    else:
-                        self.busses.append(func.bus)
+                if func.bus_name is not None:
+                    self.busses[func.bus_name].append(func)
 
             self.pins.append(pin)
 
@@ -146,26 +216,29 @@ class Device(object):
     def bus_types(self):
         '''Returns a list of supported bus types.'''
 
-        bus_types = []
-        for bus in self.busses:
-            if not bus.type in bus_types:
-                bus_types.append(bus.type)
-        return bus_types
+        types = set()
+        for pin in self.pins:
+            for fun in pin.functions:
+                if fun.bus is not None:
+                    if not fun.bus.type in types:
+                        types.add(fun.bus.type)
+        return types
 
     def bus_by_name(self, name):
-        '''Returns the Bus with name.'''
+        '''Returns a bus [Pin] with name or [].'''
 
-        for bus in self.busses:
-            if bus.name == name:
-                return bus
+        return self.busses[name]
 
     def busses_by_type(self, type):
         '''Returns a list of busses matching type.'''
 
+        bus_names = list(self.busses.keys())
+        bus_names.sort()
+
         busses = []
-        for bus in self.busses:
-            if bus.type == type:
-                busses.append(bus)
+        for name in bus_names:
+            if self.busses[name][0].bus.type == type:
+                busses.append(self.busses[name])
         return busses
 
     def pin_by_index(self, index):
@@ -201,7 +274,9 @@ class Device(object):
         pin_string = 'Pins:\n%s\n' % \
                      '\n'.join([4 * ' ' + str(pin) for pin in self.pins])
         bus_string = 'Busses:\n%s\n' % \
-                     '\n'.join([4 * ' ' + repr(bus) for bus in self.busses])
+                     '\n'.join([4 * ' ' + bus_name + ' ' +
+                                ' '.join([f.bus_func for f in funcs])
+                                for bus_name, funcs in self.busses.items()])
 
         details_string = pin_string
         if len(self.busses) > 0:

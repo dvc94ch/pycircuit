@@ -108,6 +108,12 @@ class Via(object):
     def drill(self):
         return self.net_class.via_drill()
 
+    def layers(self, num_layers):
+        layer1 = self.layer1 if self.layer1 > 0 else num_layers + self.layer1 + 1
+        layer2 = self.layer2 if self.layer2 > 0 else num_layers + self.layer2 + 1
+        start = min(layer1, layer2)
+        end = max(layer1, layer2) + 1
+        return range(start, end)
 
 class PortAttributes(object):
     def __init__(self, port, pads):
