@@ -187,6 +187,48 @@ class Pin(object):
         return '%s.%s' % (self.device.name, self.name)
 
 
+class Io(Pin):
+    '''Single function bidirectional signal pin.'''
+
+    def __init__(self, name, descr=''):
+        super().__init__(name, descr=descr)
+
+class Pwr(Io):
+    '''Single function bidirectional power pin.'''
+
+    def __init__(self, name, descr=''):
+        super().__init__(name, descr=descr)
+        self.domain = Pin.POWER
+
+class In(Pin):
+    '''Single function input signal pin.'''
+
+    def __init__(self, name, descr=''):
+        super().__init__(name, descr=descr)
+        self.functions[0].dir = Fun.INPUT
+
+class PwrIn(In):
+    '''Single function input power pin.'''
+
+    def __init__(self, name, descr=''):
+        super().__init__(name, descr=descr)
+        self.domain = Pin.POWER
+
+class Out(Pin):
+    '''Single function output signal pin.'''
+
+    def __init__(self, name, descr=''):
+        super().__init__(name, descr=descr)
+        self.functions[0].dir = Fun.OUTPUT
+
+class PwrOut(Out):
+    '''Single function output power pin.'''
+
+    def __init__(self, name, descr=''):
+        super().__init__(name, descr=descr)
+        self.domain = Pin.POWER
+
+
 class Device(object):
     '''Device represents an electrical interface. Devices are created in the
     library module and register themselves to the devices list when imported.
