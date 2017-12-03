@@ -113,7 +113,7 @@ def to_kicad(pcb):
         knet = net.to_kicad()
         kpcb.nets.append(knet)
 
-        for port in net.ports:
+        for port in net.iter_ports():
             for pad in port.pads:
                 kpcb.module_by_reference(port.node.name).connect(pad.name, knet)
 
