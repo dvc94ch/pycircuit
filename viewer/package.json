@@ -1,0 +1,28 @@
+{
+  "name": "viewer",
+  "version": "0.0.1",
+  "description": "Viewer for pycircuit generated files",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dvc94ch/pycircuit.git"
+  },
+  "keywords": [
+    "pycircuit",
+    "svg",
+    "graphviz"
+  ],
+  "author": "David Craven",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dvc94ch/pycircuit/issues"
+  },
+  "homepage": "https://github.com/dvc94ch/pycircuit#readme",
+  "dependencies": {
+    "express": "^4.16.2",
+    "normalize.css": "^7.0.0"
+  }
+}

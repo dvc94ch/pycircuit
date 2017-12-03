@@ -1,0 +1,60 @@
+text {
+    font-family: 'Verdana';
+}
+
+.graph line {
+    stroke: black;
+    stroke-width: 0.02;
+}
+
+.package .crtyd {
+    stroke: black;
+    stroke-width: 0.05;
+    fill-opacity: 0;
+}
+
+.package .pad {
+    fill-opacity: 0.5;
+}
+
+.package.top .pad {
+    fill: red;
+}
+
+.package.bottom .pad {
+    fill: green;
+}
+
+.package text {
+    font-size: 0.8px;
+}
+
+.package .pad-group text {
+    font-size: 0.2px;
+    fill: white;
+}
+
+.via {
+    fill-opacity: 0
+}
+
+.via .dia {
+    fill: black;
+}
+
+.via .drill {
+    fill: white;
+}
+
+.layer line {
+    stroke-linecap: round;
+    stroke-opacity: 0.5;
+}
+
+#layer1 line {
+    stroke: red;
+}
+
+#layer2 line {
+    stroke: green;
+}
