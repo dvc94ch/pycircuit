@@ -45,6 +45,12 @@ class Footprint(object):
     def add_map(self, map):
         '''Adds a map to footprint.'''
 
+        pin = self.device.pin_by_name(map.pin)
+        pad = self.package.pad_by_name(map.pad)
+        assert not pin is None and not pad is None
+
+        map.pin = pin
+        map.pad = pad
         map.footprint = self
         self.maps.append(map)
 
@@ -52,17 +58,15 @@ class Footprint(object):
         '''Returns the pin mapped to pad.'''
 
         for map in self.maps:
-            if map.pad == pad.name:
-                return self.device.pin_by_name(map.pin)
+            if map.pad == pad:
+                return map.pin
 
     def pads_by_pin(self, pin):
         '''Returns a list of pads mapped to pin.'''
 
-        pads = []
         for map in self.maps:
-            if map.pin == pin.name:
-                pads.append(self.package.pad_by_name(map.pad))
-        return pads
+            if map.pin == pin:
+                yield map.pad
 
     def __str__(self):
         '''Returns the name of a Footprint.'''

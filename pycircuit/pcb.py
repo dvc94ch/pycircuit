@@ -192,7 +192,7 @@ class NodeAttributes(object):
 
         self.footprint = Footprint.footprint_by_name(fp)
         for port in self.node.ports:
-            pads = self.footprint.pads_by_pin(port.pin)
+            pads = [x for x in self.footprint.pads_by_pin(port.pin)]
             port.attrs = PortAttributes(self.node, pads)
 
     def set_power(self, power):
