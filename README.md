@@ -10,22 +10,23 @@ explicit.
 ```python
 from pycircuit.device import *
 
-Device('MCU',
+Device('MCU', pins=[
        Pin('GND'),
        Pin('VCC'),
-       Pin('XTAL_XI', Bus('XTAL', 'XI')),
-       Pin('XTAL_XO', Bus('XTAL', 'XO')),
-       Pin('JTAG_TCK', Bus('JTAG', 'TCK')),
-       Pin('JTAG_TDO', Bus('JTAG', 'TDO')),
-       Pin('JTAG_TMS', Bus('JTAG', 'TMS')),
-       Pin('JTAG_TDI', Bus('JTAG', 'TDI')),
-       Pin('GPIO_1', 'GPIO', Bus('UART1', 'UART', 'TX')),
-       Pin('GPIO_2', 'GPIO', Bus('UART1', 'UART', 'RX')),
+       Pin('XTAL_XI', Fun('XTAL', 'XI')),
+       Pin('XTAL_XO', Fun('XTAL', 'XO')),
+       Pin('JTAG_TCK', Fun('JTAG', 'TCK')),
+       Pin('JTAG_TDO', Fun('JTAG', 'TDO')),
+       Pin('JTAG_TMS', Fun('JTAG', 'TMS')),
+       Pin('JTAG_TDI', Fun('JTAG', 'TDI')),
+       Pin('GPIO_1', 'GPIO', Fun('UART1', 'UART', 'TX')),
+       Pin('GPIO_2', 'GPIO', Fun('UART1', 'UART', 'RX')),
        Pin('GPIO_3', 'GPIO'),
        Pin('GPIO_4', 'GPIO'),
-       Pin('GPIO_5', 'GPIO', Bus('UART2', 'UART', 'TX')),
-       Pin('GPIO_6', 'GPIO', Bus('UART2', 'UART', 'RX')),
-       Pin('GPIO_7', 'GPIO'))
+       Pin('GPIO_5', 'GPIO', Fun('UART2', 'UART', 'TX')),
+       Pin('GPIO_6', 'GPIO', Fun('UART2', 'UART', 'RX')),
+       Pin('GPIO_7', 'GPIO')
+       ])
 ```
 
 ## Packages
@@ -108,6 +109,12 @@ def top():
 from pycircuit.pcb import *
 
 circuit = top()
+
+# Decoupling schematic capture from layout
+# means that we have to manually construct
+# NodeAttributes for each node.
+for node in circuit.iter_nodes():
+    node.attrs = NodeAttributes(node)
 
 # Set footprints
 for node in circuit.nodes_by_device('R'):
