@@ -30,12 +30,12 @@ text {
 }
 
 .package .pad-group text {
-    font-size: 0.2px;
+    font-size: 0.4px;
     fill: white;
 }
 
 .via {
-    fill-opacity: 0
+    fill-opacity: 1
 }
 
 .via .dia {
