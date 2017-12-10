@@ -78,6 +78,9 @@ class Segment(object):
         self.end = end
         self.layer = layer
 
+        self.net.segments.append(self)
+        self.layer.segments.append(self)
+
     def width(self):
         return self.net_class.segment_width
 
@@ -88,13 +91,16 @@ class Segment(object):
 
 
 class Via(object):
-    def __init__(self, net, net_class, coord, layer1=1, layer2=-1):
+    def __init__(self, net, net_class, coord, layers):
         self.net = net
         self.net_class = net_class
 
         self.coord = coord
-        self.layer1 = layer1
-        self.layer2 = layer2
+        self.layers = layers
+
+        self.net.vias.append(self)
+        for layer in layers:
+            layer.vias.append(self)
 
     def diameter(self):
         return self.net_class.via_diameter
@@ -102,12 +108,10 @@ class Via(object):
     def drill(self):
         return self.net_class.via_drill
 
-    def layers(self, num_layers):
-        layer1 = self.layer1 if self.layer1 > 0 else num_layers + self.layer1 + 1
-        layer2 = self.layer2 if self.layer2 > 0 else num_layers + self.layer2 + 1
-        start = min(layer1, layer2)
-        end = max(layer1, layer2) + 1
-        return range(start, end)
+    def layers(self):
+        for layer in self.layers:
+            yield layer
+
 
 class PortAttributes(object):
     def __init__(self, port, pads):
@@ -184,7 +188,7 @@ class NodeAttributes(object):
     def set_footprint(self, fp):
         '''Sets the footprint of a node and assigns pads to all ports.'''
 
-        self.footprint = Footprint.footprint_by_name(fp)
+        self.footprint = fp
         for port in self.node.ports:
             pads = [x for x in self.footprint.pads_by_pin(port.pin)]
             port.attrs = PortAttributes(self.node, pads)
@@ -278,20 +282,74 @@ class NodeAttributes(object):
         return not self.intersection(node).is_empty
 
 
+class Layer(object):
+    Cu, Ag, Au = list(range(3))
+    oz = 34.79
+
+    def __init__(self, name, thickness, material=None):
+        # Properties
+        self.name = name
+        self.thickness = thickness
+        self.material = Layer.Cu if material is None else material
+        # Stackup
+        self.above = None
+        self.below = None
+        # Elements
+        self.packages = []
+        self.segments = []
+        self.vias = []
+
+    def __str__(self):
+        return self.name
+
+
+class Layers(object):
+
+    def __init__(self, layers):
+        for i, layer in enumerate(layers[0:-1]):
+            layer.below = layers[i + 1]
+        for i, layer in enumerate(layers[1:]):
+            layer.above = layers[i]
+        self.layers = layers
+
+    def __getitem__(self, index):
+        return self.layers[index]
+
+    def __str__(self):
+        return str([str(layer) for layer in self.layers])
+
+    @classmethod
+    def two_layer_board(cls, oz):
+        return cls([
+            Layer('top', Layer.oz * oz),
+            Layer('bottom', Layer.oz * oz)
+        ])
+
+    @classmethod
+    def four_layer_board(cls, oz_outer, oz_inner):
+        return cls([
+            Layer('top', Layer.oz * oz_outer),
+            Layer('inner1', Layer.oz * oz_inner),
+            Layer('inner2', Layer.oz * oz_inner),
+            Layer('bottom', Layer.oz * oz_outer)
+        ])
+
+
 class Pcb(object):
-    def __init__(self, circuit, num_layers, net_class):
+    def __init__(self, circuit, layers, net_class, cost_cm2):
         self.circuit = circuit
-        self.layers = num_layers
+        self.layers = layers
         self.net_class = net_class
         self.edge_clearance = net_class.segment_clearance
+        self.cost_cm2 = cost_cm2
 
         # Current position, layer and net used when creating segments and vias.
         self.pos = np.array([0, 0, 1])
-        self.layer = 1
+        self.layer = self.layers[0]
         self.net = None
 
         # Topological representation
-        self.rbs = RubberBandSketch()
+        # self.rbs = RubberBandSketch()
 
         self.courtyards = []
 
@@ -304,7 +362,7 @@ class Pcb(object):
                 port = node.port_by_pin(pin)
                 net = None if port is None else port.net
 
-                self.rbs.add_feature(RBSFeature(loc[0], loc[1], net, node, pad))
+                #self.rbs.add_feature(RBSFeature(loc[0], loc[1], net, node, pad))
 
         for net in self.circuit.iter_nets():
             net.attrs = NetAttributes(net, self)
@@ -313,8 +371,15 @@ class Pcb(object):
         self.bounds = self.multipolygon.bounds
         self.width = self.bounds[2] - self.bounds[0]
         self.height = self.bounds[3] - self.bounds[1]
+        self.area = self.multipolygon.area
+        self.cost = self.area / 100 * self.cost_cm2
 
-        self.rbs.triangulate()
+        #self.rbs.triangulate()
+
+    def get_layer(self, name):
+        for layer in self.layers:
+            if layer.name == name:
+                return layer
 
     def outline(self):
         left = self.bounds[0] - self.edge_clearance
@@ -328,7 +393,8 @@ class Pcb(object):
         pad = node.pad_by_name(pad)
         pin = node.footprint.pin_by_pad(pad)
         net = node.port_by_pin(pin).net
-        layer = -1 if node.flipped else 1
+        layer_index = -1 if node.flipped else 0
+        layer = self.layers[layer_index]
         location = node.pad_location(pad)
         return {
             'node': node,
@@ -353,17 +419,12 @@ class Pcb(object):
         # Avoid in place updating
         self.pos = self.pos + np.array([dx, dy, 1])
 
-    def via(self, dia=None, drill=None, layer=None):
-        if layer is None:
-            layer = self.layer * -1
-        assert abs(layer) > 0
-        self.layers = max(abs(layer), self.layers, 2)
+    def via(self, layer, dia=None, drill=None):
+        # Move cursor to target layer
+        self.layer = self.get_layer(layer)
 
         net_class = NetClass(self.net_class, via_diameter=dia, via_drill=drill)
-        via = Via(self.net, net_class, self.pos,
-                  layer1=self.layer, layer2=layer)
-        self.net.vias.append(via)
-        self.layer = layer
+        Via(self.net, net_class, self.pos, layers=self.layers)
 
     def segment(self, dx=0, dy=0, width=None):
         net_class = NetClass(self.net_class, segment_width=width)
@@ -372,7 +433,6 @@ class Pcb(object):
         self.move(dx, dy)
 
         segment = Segment(self.net, net_class, start, self.pos, self.layer)
-        self.net.segments.append(segment)
 
     def segment_to(self, node, pad, width=None):
         net_class = NetClass(self.net_class, segment_width=width)
@@ -380,8 +440,7 @@ class Pcb(object):
         start = self.pos
         self.move_to(node, pad)
 
-        segment = Segment(self.net, net_class, start, self.pos, self.layer)
-        self.net.segments.append(segment)
+        Segment(self.net, net_class, start, self.pos, self.layer)
 
     @classmethod
     def oshpark_4layer(cls, circuit):
@@ -395,13 +454,14 @@ class Pcb(object):
         via clearance: track clearance
         '''
 
-        return cls(circuit, num_layers=4,
+        return cls(circuit, Layers.four_layer_board(oz_outer=1, oz_inner=0.5),
                    net_class=NetClass(
                        segment_width=0.15,
                        segment_clearance=0.15,
                        via_drill=0.25,
                        via_diameter=0.5,
-                       via_clearance=0.15))
+                       via_clearance=0.15),
+                   cost_cm2=1.5)
 
     @classmethod
     def oshpark_2layer(cls, circuit):
@@ -415,10 +475,11 @@ class Pcb(object):
        via clearance: track clearance
        '''
 
-       return cls(circuit, num_layers=2,
+       return cls(circuit, Layers.two_layer_board(oz=1),
                   net_class=NetClass(
                       segment_width=0.15,
                       segment_clearance=0.15,
                       via_drill=0.25,
                       via_diameter=0.5,
-                      via_clearance=0.15))
+                      via_clearance=0.15),
+                  cost_cm2=0.75)

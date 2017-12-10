@@ -146,28 +146,23 @@ if __name__ == '__main__':
     for node in circuit.iter_nodes():
         node.attrs = NodeAttributes(node)
 
-    # Set footprints
-    for node in circuit.nodes_by_device('R'):
-        node.set_footprint('R0805')
-
-    for node in circuit.nodes_by_device('D'):
-        node.set_footprint('D0805')
-
-    circuit.node_by_name('OSC1').set_footprint('OSC0805')
-    circuit.node_by_name('BAT1').set_footprint('BAT0805')
-
-    mcu1 = circuit.node_by_name('MCU1')
-    mcu1.set_footprint('MCUQFN16')
+    for node in circuit.iter_nodes():
+        fps = list(Footprint.footprints_by_device(node.device))
+        if len(fps) < 1:
+            print('No footprint found for %s' % node.device.name)
+        else:
+            node.set_footprint(fps[0])
 
     # Place nodes
+    #circuit.to_pcpl()
+
     i = 0
     for node in circuit.iter_nodes():
-        if node.footprint is None:
-            print('Missing footprint')
         if node.footprint.package.name == '0805':
             node.place(i * 5, 0, 90)
             i += 1
 
+    mcu1 = circuit.node_by_name('MCU1')
     mcu1.place(10, 10)
     mcu1.flip()
 
@@ -187,12 +182,15 @@ if __name__ == '__main__':
     pcb.move_to('BAT1', '1')
     dist = pcb.distance('MCU1', '5')
     pcb.segment(dy=dist[1])
-    pcb.via()
+    pcb.via('bottom')
     pcb.segment_to('MCU1', '5')
 
-
     # Print some more statistics
-    print(pcb.net.length())
+    print(
+        'area:', pcb.area, 'mm2',
+        'cost:', pcb.cost, '$',
+        'traces:', pcb.net.length(), 'mm'
+    )
 
     for net in circuit.iter_nets():
         #for loc in net.pad_locations():

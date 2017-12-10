@@ -90,6 +90,14 @@ class Footprint(object):
         raise IndexError('No Footprint with name ' + name)
 
     @classmethod
+    def footprints_by_device(cls, device):
+        '''Returns the available Footprints for device.'''
+
+        for fp in cls.footprints:
+            if fp.device == device:
+                yield fp
+
+    @classmethod
     def register_footprint(cls, footprint):
         '''Register a Footprint.'''
 

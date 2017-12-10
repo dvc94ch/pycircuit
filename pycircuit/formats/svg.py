@@ -1,7 +1,7 @@
 import xml.etree.cElementTree as xml
 from pycircuit.circuit import Node
 from pycircuit.package import Package
-from pycircuit.pcb import Pcb, Via, Segment
+from pycircuit.pcb import Pcb, Via, Segment, Layer
 from pycircuit.formats import extends
 
 
@@ -17,8 +17,19 @@ class SvgElement(object):
         for k, v in attrs.items():
             if not isinstance(v, str):
                 v = str(v)
-            self.element.attrib[k] = v
+            self.set_attr(k, v)
         return self
+
+    def set_attr(self, key, value):
+        self.element.attrib[key] = value
+
+    def get_attr(self, key):
+        return self.element.attrib[key]
+
+    def add_class(self, klass):
+        klasses = self.get_attr('class')
+        klasses += " " + klass
+        self.set_attr('class', klasses)
 
     def append(self, *children):
         for child in children:
@@ -207,32 +218,33 @@ def to_svg(self):
     })
 
 
+@extends(Layer)
+def to_svg(self):
+    layer = SvgGroup('layer')
+    layer.add_class(self.name)
+    for via in self.vias:
+        layer.append(via.to_svg())
+    for seg in self.segments:
+        layer.append(seg.to_svg())
+    return layer
+
+
 @extends(Pcb)
 def to_svg(self):
     svg = SvgRoot(self.outline())
 
-    graph = SvgGroup('graph')
-    for i, ij in self.rbs.graph.edges.items():
-        for j in ij:
-            n1, n2 = self.rbs.features[i], self.rbs.features[j]
+    #graph = SvgGroup('graph')
+    #for i, ij in self.rbs.graph.edges.items():
+    #    for j in ij:
+    #        n1, n2 = self.rbs.features[i], self.rbs.features[j]
 
-            graph.append(SvgLine((n1.x, n1.y), (n2.x, n2.y)))
-    svg.append(graph)
+    #        graph.append(SvgLine((n1.x, n1.y), (n2.x, n2.y)))
+    #svg.append(graph)
 
     for node in self.circuit.iter_nodes():
         svg.append(node.to_svg())
 
-    layers = [SvgGroup('layer').set_attrs({'id': 'layer' + str(i)})
-              for i in range(self.layers + 1)]
-    for net in self.circuit.iter_nets():
-        for seg in net.segments:
-            layers[seg.layer].append(seg.to_svg())
-
-        for via in net.vias:
-            for layer in via.layers(self.layers):
-                layers[layer].append(via.to_svg())
-
-    for layer in layers[-1:0:-1]:
-        svg.append(layer)
+    for layer in self.layers:
+        svg.append(layer.to_svg())
 
     return svg

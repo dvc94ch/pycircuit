@@ -51,10 +51,18 @@ text {
     stroke-opacity: 0.5;
 }
 
-#layer1 line {
+.layer.top line {
     stroke: red;
 }
 
-#layer2 line {
+.layer.inner1 line {
+    stroke: blue;
+}
+
+.layer.inner2 line {
+    stroke: purple;
+}
+
+.layer.bottom line {
     stroke: green;
 }

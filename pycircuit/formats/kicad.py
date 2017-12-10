@@ -90,7 +90,7 @@ def to_kicad(self):
 
 @extends(Segment)
 def to_kicad(self):
-    layer = 'F.Cu' if self.layer == 1 else 'B.Cu'
+    layer = 'F.Cu' if self.layer.name == 'top' else 'B.Cu'
     return ki.pcb.Segment(start=list(self.start)[0:2],
                           end=list(self.end)[0:2],
                           net=self.net.id, width=self.width(),
