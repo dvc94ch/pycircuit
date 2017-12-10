@@ -53,26 +53,20 @@ class Matrix(object):
 
 class NetClass(object):
     def __init__(self, net_class=None, segment_width=None,
-                 via_diameter=None, via_drill=None):
+                 segment_clearance=None, via_diameter=None,
+                 via_drill=None, via_clearance=None):
         self.parent = net_class
         self._segment_width = segment_width
+        self._segment_clearance = segment_clearance
         self._via_diameter = via_diameter
         self._via_drill = via_drill
+        self._via_clearance = via_clearance
 
-    def segment_width(self):
-        if self._segment_width is None:
-            return self.parent.segment_width()
-        return self._segment_width
-
-    def via_diameter(self):
-        if self._via_diameter is None:
-            return self.parent.via_diameter()
-        return self._via_diameter
-
-    def via_drill(self):
-        if self._via_drill is None:
-            return self.parent.via_drill()
-        return self._via_drill
+    def __getattr__(self, attr):
+        value = getattr(self, '_' + attr)
+        if value is None:
+            return getattr(self.parent, attr)
+        return value
 
 
 class Segment(object):
@@ -85,7 +79,7 @@ class Segment(object):
         self.layer = layer
 
     def width(self):
-        return self.net_class.segment_width()
+        return self.net_class.segment_width
 
     def length(self):
         '''Returns the length of the segment.'''
@@ -103,10 +97,10 @@ class Via(object):
         self.layer2 = layer2
 
     def diameter(self):
-        return self.net_class.via_diameter()
+        return self.net_class.via_diameter
 
     def drill(self):
-        return self.net_class.via_drill()
+        return self.net_class.via_drill
 
     def layers(self, num_layers):
         layer1 = self.layer1 if self.layer1 > 0 else num_layers + self.layer1 + 1
@@ -285,11 +279,11 @@ class NodeAttributes(object):
 
 
 class Pcb(object):
-    def __init__(self, circuit):
+    def __init__(self, circuit, num_layers, net_class):
         self.circuit = circuit
-        self.net_class = NetClass(segment_width=0.25, via_diameter=0.8, via_drill=0.6)
-        self.layers = 1
-        self.edge_clearance = 2
+        self.layers = num_layers
+        self.net_class = net_class
+        self.edge_clearance = net_class.segment_clearance
 
         # Current position, layer and net used when creating segments and vias.
         self.pos = np.array([0, 0, 1])
@@ -388,3 +382,43 @@ class Pcb(object):
 
         segment = Segment(self.net, net_class, start, self.pos, self.layer)
         self.net.segments.append(segment)
+
+    @classmethod
+    def oshpark_4layer(cls, circuit):
+        '''
+        track width: 5mil (0.127mm)
+        track clearance: 5mil (0.127mm)
+        drill: 10mil (0.254mm)
+        annular ring: 4mil (0.102mm)
+
+        via diameter: 2 * annular ring + drill = 18mil (0.457mm)
+        via clearance: track clearance
+        '''
+
+        return cls(circuit, num_layers=4,
+                   net_class=NetClass(
+                       segment_width=0.15,
+                       segment_clearance=0.15,
+                       via_drill=0.25,
+                       via_diameter=0.5,
+                       via_clearance=0.15))
+
+    @classmethod
+    def oshpark_2layer(cls, circuit):
+       '''
+       track width: 6mil (0.152mm)
+       track clearance: 6mil (0.152mm)
+       drill: 10mil (0.254mm)
+       annular ring: 5mil (0.127mm)
+
+       via diameter: 2 * annular ring + drill = 20mil (0.508mm)
+       via clearance: track clearance
+       '''
+
+       return cls(circuit, num_layers=2,
+                  net_class=NetClass(
+                      segment_width=0.15,
+                      segment_clearance=0.15,
+                      via_drill=0.25,
+                      via_diameter=0.5,
+                      via_clearance=0.15))

@@ -183,7 +183,7 @@ if __name__ == '__main__':
     #mcu1.swap_bus('UART1', 'UART2')
 
     # Create a pcb
-    pcb = Pcb(circuit)
+    pcb = Pcb.oshpark_4layer(circuit)
     pcb.move_to('BAT1', '1')
     dist = pcb.distance('MCU1', '5')
     pcb.segment(dy=dist[1])
