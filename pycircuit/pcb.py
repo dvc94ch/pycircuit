@@ -89,6 +89,9 @@ class Segment(object):
 
         return Point(self.start[0:2]).distance(Point(self.end[0:2]))
 
+    def __str__(self):
+        return '%s %s' % (str(self.start), str(self.end))
+
 
 class Via(object):
     def __init__(self, net, net_class, coord, layers):
@@ -118,7 +121,7 @@ class PortAttributes(object):
         self.port = port
         self.pads = pads
 
-    def pad_locations(self):
+    def iter_pads(self):
         '''Returns an iterator over the ports coordinates.'''
 
         for pad in self.pads:
@@ -137,11 +140,11 @@ class NetAttributes(object):
         self.segments = []
         self.vias = []
 
-    def pad_locations(self):
+    def iter_pads(self):
         '''Iterator over all coordinates belonging to the net.'''
 
-        for port in self.net.ports:
-            for location in port.pad_locations():
+        for port in self.net.iter_ports():
+            for location in port.iter_pads():
                 yield location
 
     def bounds(self):
@@ -343,38 +346,27 @@ class Pcb(object):
         self.edge_clearance = net_class.segment_clearance
         self.cost_cm2 = cost_cm2
 
+        for node in self.circuit.iter_nodes():
+            node.attrs = NodeAttributes(node)
+
+        for net in self.circuit.iter_nets():
+            net.attrs = NetAttributes(net, self)
+
         # Current position, layer and net used when creating segments and vias.
         self.pos = np.array([0, 0, 1])
         self.layer = self.layers[0]
         self.net = None
 
-        # Topological representation
-        # self.rbs = RubberBandSketch()
-
+    def finalize(self):
         self.courtyards = []
-
         for node in self.circuit.iter_nodes():
             self.courtyards.append(node.courtyard())
-
-            for pad in node.footprint.package.pads:
-                loc = node.pad_location(pad)
-                pin = node.footprint.pin_by_pad(pad)
-                port = node.port_by_pin(pin)
-                net = None if port is None else port.net
-
-                #self.rbs.add_feature(RBSFeature(loc[0], loc[1], net, node, pad))
-
-        for net in self.circuit.iter_nets():
-            net.attrs = NetAttributes(net, self)
-
         self.multipolygon = MultiPolygon(self.courtyards)
         self.bounds = self.multipolygon.bounds
         self.width = self.bounds[2] - self.bounds[0]
         self.height = self.bounds[3] - self.bounds[1]
         self.area = self.multipolygon.area
         self.cost = self.area / 100 * self.cost_cm2
-
-        #self.rbs.triangulate()
 
     def get_layer(self, name):
         for layer in self.layers:

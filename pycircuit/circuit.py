@@ -71,11 +71,16 @@ class Net(object):
             self.nets.append(net)
 
     def iter_ports(self):
+        ports = set()
         for port in self.ports:
-            yield port
+            if not port in ports:
+                ports.add(port)
+                yield port
         for net in self.iter_nets():
             for port in net.iter_ports():
-                yield port
+                if not port in ports:
+                    ports.add(port)
+                    yield port
 
     def iter_nets(self):
         for net in self.nets:
@@ -376,13 +381,18 @@ class Circuit(object):
             for port in node.ports:
                 if not port.net is None and not port.net.id in visited:
                     visited.add(port.net.id)
-                    yield port.net
+                    yield port.net.root_net()
 
     def iter_subnets(self):
         for net in self.nets:
             yield net
             for net in net.iter_nets():
                 yield net
+
+    def node_by_id(self, id):
+        for node in self.iter_nodes():
+            if node.id == id:
+                return node
 
     def node_by_name(self, name):
         for node in self.nodes:

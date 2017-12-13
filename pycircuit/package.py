@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from shapely import affinity
 from shapely.geometry import Point, Polygon
@@ -176,15 +177,24 @@ class PerimeterPads(object):
 
 
 class Courtyard(object):
+    # IPC grid element is 0.5mm * 0.5mm
+    IPC_GRID_SCALE = 0.5
+
     def __init__(self, coords):
         self.coords = coords
         self.polygon = Polygon(coords)
         self.bounds = self.polygon.bounds
         self.width = self.bounds[2] - self.bounds[0]
         self.height = self.bounds[3] - self.bounds[1]
+        self.ipc_width = int(math.ceil(self.width / self.IPC_GRID_SCALE)),
+        self.ipc_height = int(math.ceil(self.height / self.IPC_GRID_SCALE))
 
     def __repr__(self):
         return repr(self.coords)
+
+    def __str__(self):
+        return 'width=%s (0.5mm), height=%s (0.5mm)' % \
+            (self.ipc_width, self.ipc_height)
 
 
 class RectCrtyd(Courtyard):
@@ -197,9 +207,6 @@ class RectCrtyd(Courtyard):
 
 
 class IPCGrid(RectCrtyd):
-
-    # IPC grid element is 0.5mm * 0.5mm
-    IPC_GRID_SCALE = 0.5
 
     def __init__(self, ipc_x, ipc_z):
         super().__init__(ipc_z * self.IPC_GRID_SCALE,
