@@ -151,14 +151,17 @@ if __name__ == '__main__':
             node.set_footprint(fps[0])
 
     pcb.to_pcpl('small.pcpl')
-    pcb.from_pcpl('small.out.pcpl')
+    try:
+        pcb.from_pcpl('small.out.pcpl')
+    except FileNotFoundError:
+        print('No small.out.pcpl file.')
 
     pcb.finalize()
 
     pcb.to_pcrt('small.pcrt')
     try:
         pcb.from_pcrt('small.out.pcrt')
-    except:
+    except FileNotFoundError:
         print('No small.out.pcrt file.')
 
     graph = pcb.circuit.to_graphviz()
