@@ -141,90 +141,29 @@ def top():
 
 
 if __name__ == '__main__':
-    circuit = top()
+    pcb = Pcb.oshpark_4layer(top())
 
-    for node in circuit.iter_nodes():
-        node.attrs = NodeAttributes(node)
-
-    for node in circuit.iter_nodes():
+    for node in pcb.circuit.iter_nodes():
         fps = list(Footprint.footprints_by_device(node.device))
         if len(fps) < 1:
             print('No footprint found for %s' % node.device.name)
         else:
             node.set_footprint(fps[0])
 
-    # Place nodes
-    #circuit.to_pcpl()
+    pcb.to_pcpl('small.pcpl')
+    pcb.from_pcpl('small.out.pcpl')
 
-    i = 0
-    for node in circuit.iter_nodes():
-        if node.footprint.package.name == '0805':
-            node.place(i * 5, 0, 90)
-            i += 1
+    pcb.finalize()
 
-    mcu1 = circuit.node_by_name('MCU1')
-    mcu1.place(10, 10)
-    mcu1.flip()
+    pcb.to_pcrt('small.pcrt')
+    try:
+        pcb.from_pcrt('small.out.pcrt')
+    except:
+        print('No small.out.pcrt file.')
 
-    # Show some statistics
-    bat = circuit.node_by_name('BAT1')
-    print('MCU1 area:', mcu1.area())
-    print('BAT1 area:', bat.area())
-    print('MCU1 intersects itself:', mcu1.intersects(mcu1))
-    print('MCU1 intersects BAT1:', mcu1.intersects(bat))
-
-    mcu1.set_power(1.2)
-    #mcu1.swap_pin('GPIO_5', 'GPIO_6')
-    #mcu1.swap_bus('UART1', 'UART2')
-
-    # Create a pcb
-    pcb = Pcb.oshpark_4layer(circuit)
-    pcb.move_to('BAT1', '1')
-    dist = pcb.distance('MCU1', '5')
-    pcb.segment(dy=dist[1])
-    pcb.via('bottom')
-    pcb.segment_to('MCU1', '5')
-
-    # Print some more statistics
-    print(
-        'area:', pcb.area, 'mm2',
-        'cost:', pcb.cost, '$',
-        'traces:', pcb.net.length(), 'mm'
-    )
-
-    for net in circuit.iter_nets():
-        #for loc in net.pad_locations():
-        #pcb.rbs.shortest_route()
-        print('net', net.name, net.half_perimeter_length())
-
-
-    # Export circuit to graph
-    graph = circuit.to_graphviz()
+    graph = pcb.circuit.to_graphviz()
     graph.format = 'svg'
-    graph.render('viewer/files/net')
-    # Export pcb to svg
-    pcb.to_svg().save('viewer/files/pcb.svg')
+    graph.render('net.dot')
 
-    # Convert pcb to kicad
-    kpcb = pcb.to_kicad()
-
-    left, top, right, bottom = pcb.outline()
-    coords = [(left, top), (right, top), (right, bottom), (left, bottom)]
-    gndplane_top = Zone(net_name='GND', layer='F.Cu', polygon=coords, clearance=0.3)
-    gndplane_bottom = Zone(net_name='GND', layer='B.Cu', polygon=coords, clearance=0.3)
-    kpcb.zones = [gndplane_top, gndplane_bottom]
-
-    # Use pykicad to postprocess the pcb:
-    # Add and place some floating packages
-    r_0805 = Package.from_kicad(Module.from_library('Resistors_SMD', 'R_0805'))
-    pkgs = [Package.package_by_name(pkg) for pkg in ['SOT23', 'DIP8', 'PBGA16_8x8']]
-    xpos = 0
-    for pkg in pkgs + [r_0805]:
-        kmod = pkg.to_kicad()
-        xpos += pkg.size()[0] / 2
-        kmod.place(xpos, 25)
-        xpos += pkg.size()[0] / 2
-        xpos += 1
-        kpcb.modules.append(kmod)
-    # Save pcb to file
-    kpcb.to_file('small.kicad_pcb')
+    pcb.to_svg().save('pcb.svg')
+    pcb.to_kicad().to_file('small.kicad_pcb')
