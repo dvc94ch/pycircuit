@@ -4,6 +4,8 @@ Attempts to make designing and building electronics easy and fun by
 making design reuse and collaboration simple and making design intent
 explicit.
 
+Supports autoplacing and autorouting engines. An example autoplacer
+using Z3 is provided, and an example autorouter using monosat.
 
 ## Devices
 
@@ -184,8 +186,9 @@ kpcb = pcb_to_kicad(pcb)
 export_pcb(kpcb)
 ```
 
-![Graphviz](https://user-images.githubusercontent.com/741807/28041534-23b27852-65ca-11e7-8851-18986616fd96.png)
-![SVG](https://user-images.githubusercontent.com/741807/28041535-23b34174-65ca-11e7-8c1d-6b5c36cbc390.png)
+![Graphviz](https://user-images.githubusercontent.com/741807/33948211-a306313a-e026-11e7-86c6-e07ea202af9a.png)
+![SVG](https://user-images.githubusercontent.com/741807/33948212-a3320544-e026-11e7-8b61-f16453c99eff.png)
+![SVG](https://user-images.githubusercontent.com/741807/33948213-a351320c-e026-11e7-97d2-cac0b53ec065.png)
 ![KiCad](https://user-images.githubusercontent.com/741807/28041533-23af0726-65ca-11e7-8759-b010181a5372.png)
 
 
