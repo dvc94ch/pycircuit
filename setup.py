@@ -10,7 +10,7 @@ setup(
     author_email='david@craven.ch',
     url='https://github.com/dvc94ch/pycircuit',
     keywords=['eda', 'cad', 'hdl', 'kicad'],
-    install_requires=['numpy', 'scipy', 'shapely', 'pykicad', 'graphviz'],
+    install_requires=['numpy', 'scipy', 'shapely', 'pykicad', 'graphviz', 'z3-solver'],
     tests_require=['pytest'],
     license='ISC'
 )
