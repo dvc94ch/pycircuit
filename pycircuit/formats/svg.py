@@ -241,6 +241,18 @@ def to_svg(self):
     #        graph.append(SvgLine((n1.x, n1.y), (n2.x, n2.y)))
     #svg.append(graph)
 
+    grid = SvgGroup('grid')
+    grid_size = 0.05
+    grid_width = int(self.width / grid_size + 1)
+    grid_height = int(self.height / grid_size + 1)
+    for ix in range(grid_width):
+        x = ix * grid_size + self.bounds[0]
+        grid.append(SvgLine((x, self.bounds[1]), (x, self.bounds[3])))
+    for iy in range(grid_height):
+        y = iy * grid_size + self.bounds[1]
+        grid.append(SvgLine((self.bounds[0], y), (self.bounds[2], y)))
+    svg.append(grid)
+
     for node in self.circuit.iter_nodes():
         svg.append(node.to_svg())
 

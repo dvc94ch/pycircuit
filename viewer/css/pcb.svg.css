@@ -2,7 +2,7 @@ text {
     font-family: 'Verdana';
 }
 
-.graph line {
+.graph line, .grid line {
     stroke: black;
     stroke-width: 0.02;
 }
