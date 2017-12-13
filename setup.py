@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='pycircuit',
-    packages=['pycircuit', 'pycircuit.library'],
+    packages=['pycircuit', 'pycircuit.library', 'pycircuit.formats'],
     version='0.0.1',
     description='Library for composing circuits and pcb layouts',
     long_description=open('README.md').read(),
