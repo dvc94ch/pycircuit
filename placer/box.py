@@ -1,5 +1,6 @@
 from enum import Enum
 from z3 import *
+import math
 
 class Anchor(Enum):
     Min = 0
