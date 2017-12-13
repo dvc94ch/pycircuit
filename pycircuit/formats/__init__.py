@@ -27,4 +27,4 @@ def polygon_to_lines(coords):
         yield coords[i], coords[i + 1]
 
 
-__all__ = ['graphviz', 'kicad', 'svg']
+__all__ = ['graphviz', 'kicad', 'pcpl', 'pcrt', 'svg']
