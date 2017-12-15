@@ -21,11 +21,23 @@ Footprint('D0805', 'D', '0805',
           Map(2, 'K'))
 
 
+Footprint('BAT0805', 'DCCONN', '0805',
+          Map(1, 'V'),
+          Map(2, 'GND'))
+
 for a, b, c in ['BCE', 'BEC', 'CBE', 'CEB', 'ECB', 'EBC']:
     Footprint('SOT23' + a + b + c, 'Q', 'SOT23',
               Map(1, a),
               Map(2, b),
               Map(3, c))
+
+
+Package('TDK:ACT45B', RectCrtyd(5.9, 3.4), DualPads(4, 2.5, radius=2.275),
+        package_size=(5.9, 3.4), pad_size=(0.9, 1.35))
+
+
+Footprint('TDK:ACT45B', 'Choke', 'TDK:ACT45B',
+          Map(1, '1'), Map(2, '2'), Map(3, '4'), Map(4, '3'))
 
 
 @circuit('TOP')
@@ -55,3 +67,24 @@ if __name__ == '__main__':
             print('No footprint found for %s' % node.device.name)
         else:
             node.set_footprint(fps[0])
+
+    pcb.to_pcpl('joule_thief.pcpl')
+    try:
+        pcb.from_pcpl('joule_thief.out.pcpl')
+    except FileNotFoundError:
+        print('No joule_thief.out.pcpl file.')
+
+    pcb.finalize()
+
+    pcb.to_pcrt('joule_thief.pcrt')
+    try:
+        pcb.from_pcrt('joule_thief.out.pcrt')
+    except FileNotFoundError:
+        print('No joule_thief.out.pcrt file.')
+
+    graph = pcb.circuit.to_graphviz()
+    graph.format = 'svg'
+    graph.render('net.dot')
+
+    pcb.to_svg().save('pcb.svg')
+    pcb.to_kicad().to_file('joule_thief.kicad_pcb')
