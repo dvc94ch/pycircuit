@@ -47,14 +47,14 @@ def top():
     Node('R1', 'R')
     Node('Q1', 'Q')
     Node('LED1', 'D')
-    Ref('BAT1')['V']   + Net('VCC')       + Ref('R1')['1']
+    Ref('BAT1')['V']   + Net('VCC') + Ref('R1')['1']
     Ref('BAT1')['GND'] + Net('GND')
-    Ref('R1')['2']     + Ref('L1')['1']
-    Net('VCC')         + Ref('L1')['2']
-    Ref('L1')['3']     + Ref('Q1')['B']
-    Ref('L1')['4']     + Net('n1')        + Ref('Q1')['C']
+    Ref('R1')['2']     + Net('n1')  + Ref('L1')['1']
+    Ref('L1')['2']     + Net('VCC')
+    Ref('L1')['3']     + Net('n2')  + Ref('Q1')['B']
+    Ref('L1')['4']     + Net('n3')  + Ref('Q1')['C']
     Ref('Q1')['E']     + Net('GND')
-    Net('n1')          + Ref('LED1')['A']
+    Ref('LED1')['A']   + Net('n3')
     Ref('LED1')['K']   + Net('GND')
 
 
