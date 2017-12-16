@@ -30,7 +30,12 @@ for a, b, c in ('BCE', 'BEC', 'CBE', 'CEB', 'ECB', 'EBC'):
               Map(3, c))
 
 
-Device('Transformer_1P_1S', pins=(Pin('1'), Pin('2'), Pin('3'), Pin('4')))
+Device('Transformer_1P_1S',
+       pins=(Pin('L1.1', 'L1'),
+             Pin('L1.2', 'L1'),
+             Pin('L2.1', 'L2'),
+             Pin('L2.2', 'L2'),
+            ))
 
 
 Package('TDK ACT45B', RectCrtyd(5.9, 3.4), DualPads(4, 2.5, radius=2.275),
@@ -38,7 +43,7 @@ Package('TDK ACT45B', RectCrtyd(5.9, 3.4), DualPads(4, 2.5, radius=2.275),
 
 
 Footprint('TDK ACT45B', 'Transformer_1P_1S', 'TDK ACT45B',
-          Map(1, '1'), Map(2, '2'), Map(3, '4'), Map(4, '3'))
+          Map(1, 'L1.1'), Map(2, 'L2.1'), Map(3, 'L2.2'), Map(4, 'L1.2'))
 
 
 @circuit('TOP')
@@ -50,10 +55,10 @@ def top():
     Node('LED1', 'D')
     Ref('BAT1')['V']   + Net('VCC') + Ref('R1')['1']
     Ref('BAT1')['GND'] + Net('GND')
-    Ref('R1')['2']     + Net('n1')  + Ref('TR1')['1']
-    Ref('TR1')['2']    + Net('VCC')
-    Ref('TR1')['3']    + Net('n2')  + Ref('Q1')['B']
-    Ref('TR1')['4']    + Net('n3')  + Ref('Q1')['C']
+    Ref('R1')['2']     + Net('n1')  + Ref('TR1')['L1.1']
+    Ref('TR1')['L2.1'] + Net('VCC')
+    Ref('TR1')['L1.2'] + Net('n2')  + Ref('Q1')['B']
+    Ref('TR1')['L2.2'] + Net('n3')  + Ref('Q1')['C']
     Ref('Q1')['E']     + Net('GND')
     Ref('LED1')['A']   + Net('n3')
     Ref('LED1')['K']   + Net('GND')
