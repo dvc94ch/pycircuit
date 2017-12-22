@@ -1,324 +1,141 @@
-from collections import defaultdict
+import uuid
 from pycircuit.component import *
 
 
-class Vec(list):
-    '''Vec class extends a list allows addition of vecs of equal length.'''
-
-    def __add__(self, other):
-        assert len(self) == len(other)
-        return Vec([x + y for x, y in zip(self, other)])
-
-    def __getitem__(self, funcs):
-        def find_port(func):
-            for port in self:
-                if port.func.bus_func == func or port.pin.name == func:
-                    return port
-
-        if isinstance(funcs, tuple):
-            ports = Vec()
-            for fun in funcs:
-                ports.append(find_port(fun))
-            return ports
-
-        return find_port(funcs)
-
-
-class Net(object):
-
-    counter = 1
-
-    def __new__(cls, name=''):
-        # Return existing net
-        if not name == '':
-            for net in Circuit.active_circuit.nets:
-                if net.name == name:
-                    return net
-        # Create new net
-        net = super().__new__(cls)
-        net.id = Net.counter
-        Net.counter += 1
-        Circuit.active_circuit.add_net(net)
-
-        # Initialize new net
-        net.name = name
-        net.ports = []
-        net.nets = []
-        net.parent_net = None
-
-        return net
-
-    def set_id(self, id):
-        self.id = id
-        for net in self.nets:
-            net.set_id(id)
-
-    def root_net(self):
-        if self.parent_net is None:
-            return self
-        return self.parent_net.root_net()
-
-    def add_port(self, port):
-        assert port.net is None
-        if not port in self.ports:
-            port.net = self
-            self.ports.append(port)
-
-    def add_net(self, net):
-        if not net in self.nets:
-            net.set_id(self.id)
-            net.parent_net = self
-            self.nets.append(net)
-
-    def iter_ports(self):
-        ports = set()
-        for port in self.ports:
-            if not port in ports:
-                ports.add(port)
-                yield port
-        for net in self.iter_nets():
-            for port in net.iter_ports():
-                if not port in ports:
-                    ports.add(port)
-                    yield port
-
-    def iter_nets(self):
-        for net in self.nets:
-            yield net
-            for net in net.iter_nets():
-                yield net
-
-    def __len__(self):
-        return len(list(self.iter_ports()))
-
-    def connect(self, other):
-        if isinstance(other, Vec):
-            for elem in other:
-                self.connect(elem)
-        elif isinstance(other, Net):
-            self.add_net(other)
-        else:
-            self.add_port(other)
-        return self
-
-    __add__ = connect
-
-    def iter_all_subs(self):
-        subs = set()
-        subs.add(self.parent.parent)
-        for port in self.iter_ports():
-            sub = port.node
-            while True:
-                sub = sub.parent.parent
-                if sub in subs:
-                    break
-                subs.add(sub)
-                yield sub
-
-    def iter_subs(self):
-        for sub in self.parent.subs:
-            yield sub
+# Abstract base class
+class CircuitElement(object):
+    def __init__(self, name):
+        self.parent = None
+        self.uuid = uuid.uuid4()
+        self.name = name
+        self.assigns = []
+        Circuit.active_circuit.add_circuit_element(self)
 
     def __str__(self):
-        if self.name == '':
-            return str(self.id)
         return self.name
 
+
+# Ports and Nets
+def nets(string):
+    return [Net(name) for name in string.split(' ')]
+
+
+class Net(CircuitElement):
     def __repr__(self):
-        ports = ' '.join(['(%s)' % repr(port) for port in self.ports])
-        subnets = []
-        for net in self.nets:
-            subnets += repr(net).split('\n')
-        subnets = '\n    '.join(subnets)
-        string = '%s %s' % (str(self), ports)
-        if not subnets == '':
-            string += '\n    ' + subnets
-        return string
+        return 'net %s' % self.name
 
-    def __getattr__(self, attr):
-        """Net is expected to be extended with
-        self.attrs = NetAttributes(self). Is done
-        when Pcb(circuit) is called."""
 
-        return getattr(self.attrs, attr)
+def ports(string):
+    return [Port(name) for name in string.split(' ')]
 
-class Port(object):
 
-    def __init__(self, node, id, func, pin):
-        self.node = node
-        self.id = id
-        self.func = func
-        self.pin = pin
-        self.net = None
+class Port(CircuitElement):
+    def __repr__(self):
+        return 'port %s' % self.name
 
-    def connect(self, other):
-        if isinstance(other, Vec):
-            return other.append(self)
-        if isinstance(other, Net):
-            return other.connect(self)
-        if not self.net is None:
-            return self.net.connect(other)
-        if not other.net is None:
-            return other.net.connect(self)
-        return Vec([self, other])
 
-    __add__ = connect
+# Assignments
+class CircuitAssign(object):
+    def __init__(self, terminal, to):
+        assert isinstance(to, Port) or isinstance(to, Net)
+        self.uuid = uuid.uuid4()
+        self.terminal = terminal
+        self.to = to
 
-    def to_vec(self, width):
-        iter = self.node.ports_by_func(self.func.name)
-        return Vec([next(iter) for i in range(width)])
+    def __str__(self):
+        return '%s (%s)' % (str(self.terminal.pin), str(self.terminal.function))
 
     def __repr__(self):
-        return '%s %s %s' % (self.node.name, self.func, self.pin.name)
-
-    def __getattr__(self, attr):
-        """Port is expected to be extended with
-        self.attrs = PortAttributes(self). Is done
-        when node.set_footprint() is called."""
-
-        return getattr(self.attrs, attr)
+        return '%s = %s' % (str(self.terminal), str(self.to))
 
 
-class Node(object):
+# Terminals
+class Terminal(object):
+    pass
 
-    counter = 1
+class InstTerminal(Terminal):
+    def __init__(self, inst, function):
+        self.inst = inst
+        self.function = function
+        self.pin = None
 
-    def __init__(self, name, device, value=None):
-        self.id = Node.counter
-        Node.counter += 1
+    def __str__(self):
+        return self.function
 
-        self.name = name
-        self.device = Device.device_by_name(device)
+    def __repr__(self):
+        return '%s %s' % (repr(self.inst), self.function)
+
+class SubInstTerminal(Terminal):
+    def __init__(self, subinst, port):
+        self.subinst = subinst
+        self.port = port
+
+    def __str__(self):
+        return str(self.port)
+
+    def __repr__(self):
+        return '%s %s' % (repr(self.subinst), str(self.port))
+
+
+# Insts and SubInsts
+class Inst(CircuitElement):
+    def __init__(self, name, component, value=None):
+        super().__init__(name)
+
+        self.component = Component.component_by_name(component)
         self.value = value
 
-        self.ports = []
-        Circuit.active_circuit.add_node(self)
+    def __enter__(self):
+        return self
 
-    def add_port(self, func, pin):
-        func = pin.function_by_name(func)
-        port = Port(self, len(self.ports), func, pin)
-        self.ports.append(port)
-        return port
+    def __exit__(self, type, value, traceback):
+        pass
 
-    def port_by_pin(self, pin):
-        for port in self.ports:
-            if port.pin == pin:
-                return port
+    def __setitem__(self, function, to):
+        if isinstance(function, tuple):
+            for function, to in zip(function, to):
+                self[function] = to
+        else:
+            assert self.component.has_function(function)
+            terminal = InstTerminal(self, function)
+            self.parent.assign(terminal, to)
 
-    def port_by_name(self, name):
-        for port in self.ports:
-            if port.pin.name == name:
-                return port
-        pin = self.device.pin_by_name(name)
-        if not pin is None and len(pin.functions) == 1:
-            return self.add_port(pin.functions[0].name, pin)
-
-    def ports_by_func(self, func):
-        for pin in self.device.pins_by_function(func):
-            port = self.port_by_pin(pin)
-            if port is None:
-                yield self.add_port(func, pin)
-            else:
-                if port.net is None:
-                    yield port
-        raise Exception('No unconnected pin with function %s available' % func)
-
-    def ports_by_bus(self, bus):
-        vec = Vec()
-        for func in self.device.bus_by_name(bus):
-            port = self.port_by_name(func.pin.name)
-            if not port is None:
-                vec.append(port)
-        return vec
-
-    def __str__(self):
-        return '%s : %s' % (self.name, self.device.name)
-
-    def __getattr__(self, attr):
-        """Node is expected to be extended with
-        self.attrs = NodeAttributes(self)."""
-
-        return getattr(self.attrs, attr)
+    def __repr__(self):
+        inst = 'inst %s of %s {\n' % (self.name, self.component.name)
+        for assign in self.assigns:
+            inst += '  ' + repr(assign) + '\n'
+        inst += '}\n'
+        return inst
 
 
-class Sub(object):
-
-    counter = 1
-
+class SubInst(CircuitElement):
     def __init__(self, name, circuit):
-        self.id = Sub.counter
-        Sub.counter += 1
-
-        # Allows referencing nodes as Ref('circuit_name.node_name')
-        for node in circuit.nodes:
-            node.name = name + '.' + node.name
-
-        self.name = name
         self.circuit = circuit
-        circuit.parent = self
-        Circuit.active_circuit.add_sub(self)
+        super().__init__(name)
+        # Is set in add_subinst
+        circuit.parent = self.parent
 
-    def net_by_name(self, name):
-        return self.circuit.net_by_name(name)
+    def __enter__(self):
+        return self
 
-    def __str__(self):
-        return self.name
+    def __exit__(self, type, value, traceback):
+        pass
 
+    def __setitem__(self, port_name, to):
+        if isinstance(port_name, tuple):
+            for port_name, to in zip(port_name, to):
+                self[port_name] = to
+        else:
+            port = self.circuit.port_by_name(port_name)
+            assert port is not None
+            terminal = SubInstTerminal(self, port)
+            self.parent.assign(terminal, to)
 
-class Ref(object):
-
-    def __init__(self, name):
-        circuit = Circuit.active_circuit
-
-        self.node = circuit.node_by_name(name)
-        self.getitem = self.getitem_node
-
-        if isinstance(self.node, Sub):
-            self.getitem = self.getitem_sub
-
-        self.iterator = {}
-
-    def getitem_node(self, func):
-        if func in self.node.device.bus_types():
-            return self.node.ports_by_bus(func)
-
-        port = self.node.port_by_name(func)
-        if not port is None:
-            return port
-        iter = self.iterator.get(func, self.node.ports_by_func(func))
-        self.iterator[func] = iter
-        return next(iter)
-
-    def getitem_sub(self, net):
-        return self.node.net_by_name(net)
-
-    def __getitem__(self, index):
-        if isinstance(index, tuple):
-            return Vec(list(map(self.getitem, index)))
-        return self.getitem(index)
-
-    def __str__(self):
-        return '*' + str(self.node)
+    def __repr__(self):
+        return 'subinst %s of %s' % (self.name, self.circuit.name)
 
 
-class Refs(object):
-
-    def __init__(self, *nodes):
-        self.refs = []
-        for node in nodes:
-            self.refs.append(Ref(node))
-
-    def __getitem__(self, func):
-        return Vec([ref[func] for ref in self.refs])
-
-
-def Nets(*nets):
-    vec = Vec()
-    for net in nets:
-        vec.append(Net(net))
-    return vec
-
-
+# Circuit decorator
 def circuit(name):
 
     def closure(function):
@@ -345,6 +162,7 @@ def circuit(name):
     return closure
 
 
+# Circuit
 class Circuit(object):
 
     active_circuit = None
@@ -352,71 +170,129 @@ class Circuit(object):
     def __init__(self, name):
         self.parent = None
         self.name = name
-        self.nodes = []
-        self.subs = []
+
+        self.insts = []
+        self.subinsts = []
         self.nets = []
+        self.ports = []
+        self.assigns = []
 
-    def add_node(self, node):
-        node.parent = self
-        self.nodes.append(node)
+        self.insts_elab = []
+        self.nets_elab = []
+        self.assigns_elab = []
 
-    def add_sub(self, sub):
-        sub.parent = self
-        self.subs.append(sub)
+    def add_circuit_element(self, elem):
+        if isinstance(elem, Inst):
+            self.add_inst(elem)
+        elif isinstance(elem, SubInst):
+            self.add_subinst(elem)
+        elif isinstance(elem, Net):
+            self.add_net(elem)
+        elif isinstance(elem, Port):
+            self.add_port(elem)
+        else:
+            raise AssertionError('Not a circuit element')
+
+    def add_inst(self, inst):
+        assert self.inst_by_name(inst.name) is None
+        inst.parent = self
+        self.insts.append(inst)
+        self.insts_elab.append(inst)
+
+    def add_subinst(self, subinst):
+        assert self.subinst_by_name(subinst.name) is None
+        subinst.parent = self
+        self.subinsts.append(subinst)
+
+        # Propagate insts and assigns
+        self.insts_elab += subinst.circuit.insts_elab
+        self.assigns_elab += subinst.circuit.assigns_elab
+
+        # Propagate internal nets
+        for assign in subinst.circuit.assigns_elab:
+            if isinstance(assign.terminal, InstTerminal) and \
+               isinstance(assign.to, Net):
+                self.nets_elab.append(assign.to)
+
 
     def add_net(self, net):
+        assert self.net_by_name(net.name) is None
         net.parent = self
         self.nets.append(net)
+        self.nets_elab.append(net)
 
-    def iter_nodes(self):
-        for node in self.nodes:
-            yield node
-        for sub in self.subs:
-            for node in sub.circuit.iter_nodes():
-                yield node
+    def add_port(self, port):
+        assert self.port_by_name(port.name) is None
+        port.parent = self
+        self.ports.append(port)
 
-    def iter_nets(self):
-        visited = set()
-        for node in self.iter_nodes():
-            for port in node.ports:
-                if not port.net is None and not port.net.id in visited:
-                    visited.add(port.net.id)
-                    yield port.net.root_net()
+    def inst_by_name(self, name):
+        for inst in self.insts:
+            if inst.name == name:
+                return inst
 
-    def iter_subnets(self):
-        for net in self.nets:
-            yield net
-            for net in net.iter_nets():
-                yield net
-
-    def node_by_id(self, id):
-        for node in self.iter_nodes():
-            if node.id == id:
-                return node
-
-    def node_by_name(self, name):
-        for node in self.nodes:
-            if node.name == name:
-                return node
-        for sub in self.subs:
-            if sub.name == name:
-                return sub
-            if name.startswith(sub.name + '.'):
-                return sub.circuit.node_by_name(name)
-
-    def nodes_by_device(self, device):
-        for node in self.iter_nodes():
-            if node.device.name == device:
-                yield node
+    def subinst_by_name(self, name):
+        for subinst in self.subinsts:
+            if subinst.name == name:
+                return subinst
 
     def net_by_name(self, name):
-        assert not name == ''
         for net in self.nets:
             if net.name == name:
                 return net
+
+    def port_by_name(self, name):
+        for port in self.ports:
+            if port.name == name:
+                return port
+
+    def assign(self, terminal, to):
+        assign = CircuitAssign(terminal, to)
+        # Preserve unelaborated assigns (debug info)
+        assign_copy = CircuitAssign(terminal, to)
+        self.assigns.append(assign_copy)
+
+        if isinstance(assign.terminal, InstTerminal):
+            assign.terminal.inst.assigns.append(assign)
+            self.assigns_elab.append(assign)
+        elif isinstance(assign.terminal, SubInstTerminal):
+            assign.terminal.subinst.assigns.append(assign)
+
+            assigns_elab = []
+            for assign2 in self.assigns_elab:
+                if assign2.to.uuid == assign.terminal.port.uuid:
+                    assign2.to = assign.to
+                assigns_elab.append(assign2)
+            self.assigns_elab = assigns_elab
+        else:
+            raise AssertionError('Invalid terminal')
+
+    def to_netlist(self):
+        # Check that it is a top level circuit (no ports)
+        assert len(self.ports) == 0
+        return Netlist(self.insts_elab, self.assigns_elab, self.nets_elab)
 
     def __str__(self):
         return self.name
 
     def __repr__(self):
-        return '%s\n%s' % (str(self), '\n'.join([repr(net) for net in self.iter_nets()]))
+        subdesign = 'subdesign {\n'
+        for port in self.ports:
+            subdesign += '  ' + repr(port) + '\n'
+        for net in self.nets:
+            subdesign += '  ' + repr(net) + '\n'
+        for inst in self.insts:
+            for line in repr(inst).split('\n'):
+                subdesign += '\n  ' + line
+        subdesign += '\n}\n'
+        return subdesign
+
+
+class Netlist(object):
+    def __init__(self, insts, assigns, nets):
+        self.insts = insts
+        self.assigns = assigns
+        self.nets = nets
+
+    def __repr__(self):
+        return '\n'.join([repr(assign) for assign in self.assigns])

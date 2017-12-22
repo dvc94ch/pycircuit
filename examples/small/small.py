@@ -1,3 +1,5 @@
+from pycircuit.circuit import *
+from pycircuit.formats import *
 from pycircuit.library import *
 
 
@@ -45,48 +47,54 @@ Device('OSC0805', 'XTAL', '0805',
        Map(1, '1'),
        Map(2, '2'))
 
-'''
-# Define some circuits
+
 @circuit('LED')
 def led():
-    Node('Rs', 'R')
-    Node('LED', 'D')
+    _in, gnd = ports('IN GND')
+    n1 = Net('n1')
 
-    Net('IN') + Ref('Rs')['~']
-    Net('') + Ref('Rs')['~'] + Ref('LED')['A']
-    Ref('LED')['K'] + Net('GND')
+    Inst('Rs', 'R')['~', '~'] = _in, n1
+    Inst('LED', 'D')['A', 'C'] = n1, gnd
 
 
 @circuit('RGB')
 def rgb():
-    Sub('RED', led())
-    Sub('GREEN', led())
-    Sub('BLUE', led())
-
-    for net in ['RED', 'GREEN', 'BLUE']:
-        Net(net) + Ref(net)['IN']
-        Net('GND') + Ref(net)['GND']
+    gnd = Port('GND')
+    for port in ports('RED GREEN BLUE'):
+        SubInst(port.name, led())['IN', 'GND'] = port, gnd
 
 
 @circuit('TOP')
 def top():
-    Node('BAT1', 'BAT')
-    Node('OSC1', 'XTAL')
-    Node('MCU1', 'MCU')
-    Sub('RGB1', rgb())
+    vcc, gnd = nets('VCC GND')
+    xtal_xi, xtal_xo = nets('XTAL_XI XTAL_XO')
+    red, green, blue = nets('RED GREEN BLUE')
+    uart_tx, uart_rx = nets('UART_RX UART_TX')
 
-    Net('VCC') + Refs('BAT1', 'MCU1')['VCC']
-    Net('GND') + Refs('BAT1', 'MCU1', 'RGB1')['GND']
-    Nets('XTAL_XI', 'XTAL_XO') + Ref('MCU1')['XTAL_XI', 'XTAL_XO'] + \
-        Ref('OSC1')['~'].to_vec(2)
-    #Nets('UART_1', 'UART_2') + Ref('MCU1')['UART']['RX', 'TX'] + \
-    #    Ref('MCU1')['UART']['TX', 'RX']
-    Nets('RED', 'GREEN', 'BLUE') + \
-        Ref('MCU1')['GPIO'].to_vec(3) + \
-        Ref('RGB1')['RED', 'GREEN', 'BLUE']
+    Inst('BAT1', 'BAT')['+', '-'] = vcc, gnd
+    Inst('OSC1', 'XTAL')['~', '~'] = xtal_xi, xtal_xo
+
+    with SubInst('RBG1', rgb()) as rgb1:
+        rgb1['RED', 'GREEN', 'BLUE'] = red, green, blue
+        rgb1['GND'] = gnd
+
+    with Inst('MCU1', 'MCU') as mcu:
+        mcu['VCC', 'GND'] = vcc, gnd
+        mcu['XTAL_XI', 'XTAL_XO'] = xtal_xi, xtal_xo
+        mcu['GPIO', 'GPIO', 'GPIO'] = red, green, blue
+        mcu['UART_TX', 'UART_RX'] = uart_tx, uart_rx
+        mcu['UART_TX', 'UART_RX'] = uart_rx, uart_tx
 
 
 if __name__ == '__main__':
+    circuit = top()
+    print(repr(circuit))
+
+    graph = circuit.to_graphviz()
+    graph.format = 'svg'
+    graph.render('net.dot')
+
+    '''
     pcb = Pcb.oshpark_4layer(top())
 
     for node in pcb.circuit.iter_nodes():
@@ -110,9 +118,6 @@ if __name__ == '__main__':
     except FileNotFoundError:
         print('No small.out.pcrt file.')
 
-    graph = pcb.circuit.to_graphviz()
-    graph.format = 'svg'
-    graph.render('net.dot')
 
     pcb.to_svg().save('pcb.svg')
     pcb.to_kicad().to_file('small.kicad_pcb')

@@ -9,6 +9,8 @@ class Fun(object):
     def __str__(self):
         return self.function
 
+    def __repr__(self):
+        return 'fn %s' % self.function
 
 class BusFun(Fun):
     def __init__(self, bus, function):
@@ -19,6 +21,8 @@ class BusFun(Fun):
     def __str__(self):
         return '%s %s' % (self.bus, self.function)
 
+    def __repr__(self):
+        return 'busfn %s %s' % (self.bus, self.function)
 
 class Pin(object):
     def __init__(self, name, *funs, **kwargs):
@@ -52,9 +56,7 @@ class Pin(object):
         self.funs.append(fun)
 
     def __str__(self):
-        '''Return a string "Component.Pin".'''
-
-        return '%s.%s' % (self.component.name, self.name)
+        return self.name
 
     def __repr__(self):
         '''Return a string "Pin (Functions)".'''
