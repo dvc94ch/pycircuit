@@ -1,5 +1,5 @@
 from collections import defaultdict
-from pycircuit.device import *
+from pycircuit.component import *
 
 
 class Vec(list):

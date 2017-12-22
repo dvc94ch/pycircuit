@@ -1,67 +1,42 @@
-from pycircuit.device import Device, Pin
-from pycircuit.circuit import circuit, Node, Ref, Net
-from pycircuit.footprint import Footprint, Map
-from pycircuit.package import Package, RectCrtyd, DualPads
-from pycircuit.pcb import Pcb
-from pycircuit.formats import * #extends Pcb and Node
-from pycircuit.library.connectors import * #defines some Devices
-from pykicad.pcb import Zone #extends Pcb
+from pycircuit.library import *
 
 
-Footprint('R0805', 'R', '0805',
-          Map(1, '1'),
-          Map(2, '2'))
-
-
-Footprint('D0805', 'D', '0805',
-          Map(1, 'A'),
-          Map(2, 'K'))
-
-
-Footprint('BAT0805', 'DCCONN', '0805',
-          Map(1, 'V'),
-          Map(2, 'GND'))
-
-
-for a, b, c in ('BCE', 'BEC', 'CBE', 'CEB', 'ECB', 'EBC'):
-    Footprint('SOT23' + a + b + c, 'Q', 'SOT23',
-              Map(1, a),
-              Map(2, b),
-              Map(3, c))
-
-
-Device('Transformer_1P_1S',
-       pins=(Pin('L1.1', 'L1'),
-             Pin('L1.2', 'L1'),
-             Pin('L2.1', 'L2'),
-             Pin('L2.2', 'L2'),
-            ))
-
+Device('BAT0805', 'BAT', '0805',
+       Map(1, '+'),
+       Map(2, '-'))
 
 Package('TDK ACT45B', RectCrtyd(5.9, 3.4), DualPads(4, 2.5, radius=2.275),
         package_size=(5.9, 3.4), pad_size=(0.9, 1.35))
 
+Device('TDK ACT45B', 'Transformer_1P_1S', 'TDK ACT45B',
+       Map(1, 'L1.1'), Map(2, 'L2.1'), Map(3, 'L2.2'), Map(4, 'L1.2'))
 
-Footprint('TDK ACT45B', 'Transformer_1P_1S', 'TDK ACT45B',
-          Map(1, 'L1.1'), Map(2, 'L2.1'), Map(3, 'L2.2'), Map(4, 'L1.2'))
 
-
+'''
 @circuit('TOP')
 def top():
-    Node('TR1', 'Transformer_1P_1S')
-    Node('BAT1', 'DCCONN')
-    Node('R1', 'R')
-    Node('Q1', 'Q')
-    Node('LED1', 'D')
-    Ref('BAT1')['V']   + Net('VCC') + Ref('R1')['1']
-    Ref('BAT1')['GND'] + Net('GND')
-    Ref('R1')['2']     + Net('n1')  + Ref('TR1')['L1.1']
-    Ref('TR1')['L2.1'] + Net('VCC')
-    Ref('TR1')['L1.2'] + Net('n2')  + Ref('Q1')['B']
-    Ref('TR1')['L2.2'] + Net('n3')  + Ref('Q1')['C']
-    Ref('Q1')['E']     + Net('GND')
-    Ref('LED1')['A']   + Net('n3')
-    Ref('LED1')['K']   + Net('GND')
+    vcc, gnd, n1, n2, n3 = nets('VCC GND n1 n2 n3')
+
+    with Node('TR1', 'Transformer_1P_1S') as tr1:
+        # Assign to individual pins
+        tr1['L1.1'] += n1
+        tr1['L1.2'] += n2
+        # Assign to bus
+        tr1['L2'] += (vcc, n3)
+
+    with Node('BAT1', 'DCCONN') as bat1:
+        bat1['+'] += vcc
+        bat1['-'] += gnd
+
+    with Node('R1', 'R') as r1:
+        r1 += (vcc, n1)
+
+    with Node('Q1', 'Q') as q1:
+        # Assign multiple pins
+        q1['B', 'C', 'E'] += (n2, n3, gnd)
+
+    with Node('LED1', 'D') as led1:
+        led1['A', 'C'] += (n3, gnd)
 
 
 if __name__ == '__main__':
@@ -94,3 +69,4 @@ if __name__ == '__main__':
 
     pcb.to_svg().save('pcb.svg')
     pcb.to_kicad().to_file('joule_thief.kicad_pcb')
+'''
