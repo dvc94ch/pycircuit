@@ -186,7 +186,7 @@ class Courtyard(object):
         self.bounds = self.polygon.bounds
         self.width = self.bounds[2] - self.bounds[0]
         self.height = self.bounds[3] - self.bounds[1]
-        self.ipc_width = int(math.ceil(self.width / self.IPC_GRID_SCALE)),
+        self.ipc_width = int(math.ceil(self.width / self.IPC_GRID_SCALE))
         self.ipc_height = int(math.ceil(self.height / self.IPC_GRID_SCALE))
 
     def __repr__(self):
@@ -268,8 +268,8 @@ class Package(object):
     def __repr__(self):
         '''Returns the representation of a Package.'''
 
-        pad_string = '\n'.join([4 * ' ' + repr(pad) for pad in self.pads])
-        return '%s\nCourtyard:\n%s\nPads:\n%s\n' \
+        pad_string = '\n'.join([2 * ' ' + repr(pad) for pad in self.pads])
+        return '%s %s\n%s\n' \
             % (self.name, str(self.courtyard), pad_string)
 
     @classmethod

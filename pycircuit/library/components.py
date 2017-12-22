@@ -19,8 +19,8 @@ Component('L', 'Inductor',
           Pin('2', Fun('~'), optional=False))
 
 Component('BAT', 'Battery',
-          PwrOut('VCC', optional=False),
-          PwrOut('GND', optional=False))
+          PwrOut('+', optional=False),
+          PwrOut('-', optional=False))
 
 Component('XTAL', 'Crystal',
           Pin('1', Fun('~'), optional=False),

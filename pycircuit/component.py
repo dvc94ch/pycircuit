@@ -25,7 +25,13 @@ class Pin(object):
         self.id = None
         self.device = None
         self.name = name
-        self.funs = funs
+        self.funs = []
+
+        if len(funs) == 0:
+            self.add_fun(Fun(self.name))
+        else:
+            for fun in funs:
+                self.add_fun(fun)
 
         self.optional = True
         if 'optional' in kwargs:
@@ -34,6 +40,15 @@ class Pin(object):
         self.description = ''
         if 'description' in kwargs:
             self.description = kwargs['description']
+
+    def fun_by_function(self, function):
+        for fun in self.funs:
+            if fun.function == function:
+                return fun
+
+    def add_fun(self, fun):
+        assert self.fun_by_function(fun.function) is None
+        self.funs.append(fun)
 
     def __str__(self):
         '''Return a string "Component.Pin".'''
@@ -95,7 +110,7 @@ class Component(object):
     def pin_by_name(self, name):
         for pin in self.pins:
             if pin.name == name:
-                return name
+                return pin
 
     def __str__(self):
         '''Return the name of the device.'''
@@ -108,7 +123,7 @@ class Component(object):
 
         pin_string = '\n'.join([2 * ' ' + repr(pin) for pin in self.pins])
 
-        return '%s\n%s' % (self.name, pin_string)
+        return '%s\n%s\n' % (self.name, pin_string)
 
     @classmethod
     def component_by_name(cls, name):

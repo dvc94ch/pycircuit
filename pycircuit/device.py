@@ -66,7 +66,7 @@ class Device(object):
                     assert not map.pad is None
             elif len(maps) > 0:
                 # If pin is required pad can't be None
-                if pin.required:
+                if not pin.optional:
                     assert not maps[0].pad is None
             else:
                 # At least one Map per Pin
