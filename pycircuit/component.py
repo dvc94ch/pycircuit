@@ -41,13 +41,14 @@ class Pin(object):
         if 'description' in kwargs:
             self.description = kwargs['description']
 
-    def fun_by_function(self, function):
+    def has_function(self, function):
         for fun in self.funs:
             if fun.function == function:
-                return fun
+                return True
+        return False
 
     def add_fun(self, fun):
-        assert self.fun_by_function(fun.function) is None
+        assert not self.has_function(fun.function)
         self.funs.append(fun)
 
     def __str__(self):
@@ -74,9 +75,18 @@ class Component(object):
         self.pins = []
         self.funs = []
         self.busses = []
+        self._functions = set()
 
         for pin in pins:
             self.add_pin(pin)
+
+        # Check that there is no Fun named like a BusFun
+        # and no BusFun named like a Fun
+        for function in self._functions:
+            iterator = self.funs_by_function(function)
+            ty = type(next(iterator))
+            for fun in iterator:
+                assert type(fun) == ty
 
     def add_pin(self, pin):
         assert self.pin_by_name(pin.name) is None
@@ -89,6 +99,7 @@ class Component(object):
             fun.id = len(self.funs)
             fun.pin = pin
             self.funs.append(fun)
+            self._functions.add(fun.function)
 
             # Assign bus_id
             if isinstance(fun, BusFun):
@@ -100,9 +111,16 @@ class Component(object):
                     fun.bus_id = len(self.busses)
                     self.busses.append(fun.bus)
             else:
-                fun.bus_id = -fun.id
+                # make sure bus_id is unique and smaller zero
+                fun.bus_id = -fun.id - 1
 
-    def funs_by_name(self, function):
+    def has_function(self, function):
+        return function in self._functions
+
+    def is_busfun(self, function):
+        return isinstance(next(self.funs_by_function(function)), BusFun)
+
+    def funs_by_function(self, function):
         for fun in self.funs:
             if fun.function == function:
                 yield fun
@@ -113,17 +131,15 @@ class Component(object):
                 return pin
 
     def __str__(self):
-        '''Return the name of the device.'''
+        '''Return the name of the component.'''
 
         return self.name
 
     def __repr__(self):
-        '''Return a string representing the device's bus types,
-        busses and pins.'''
-
-        pin_string = '\n'.join([2 * ' ' + repr(pin) for pin in self.pins])
-
-        return '%s\n%s\n' % (self.name, pin_string)
+        component = '%s\n' % self.name
+        for pin in self.pins:
+            component += '  ' + repr(pin) + '\n'
+        return component
 
     @classmethod
     def component_by_name(cls, name):
