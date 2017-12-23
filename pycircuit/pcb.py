@@ -1,8 +1,7 @@
 import numpy as np
 import shapely.ops as ops
 from shapely.geometry import *
-from pycircuit.footprint import *
-from pycircuit.rbs import *
+from pycircuit.device import *
 
 
 class Matrix(object):
