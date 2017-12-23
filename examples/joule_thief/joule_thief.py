@@ -1,6 +1,6 @@
 from pycircuit.circuit import *
-from pycircuit.formats import *
 from pycircuit.library import *
+from pycircuit.compiler import *
 
 
 Device('BAT0805', 'BAT', '0805',
@@ -29,12 +29,7 @@ def top():
 
 
 if __name__ == '__main__':
-    circuit = top()
-    print(repr(circuit))
-
-    graph = circuit.to_graphviz()
-    graph.format = 'svg'
-    graph.render('net.dot')
+    Compiler(top())
 
     '''
     pcb = Pcb.oshpark_4layer(top())
