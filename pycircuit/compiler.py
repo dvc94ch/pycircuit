@@ -9,10 +9,12 @@ class Compiler(object):
 
         for inst in self.netlist.insts:
             # Convert CircuitAssign to Assign
-            assigns = []
+            assigns = {}
             for assign in inst.assigns:
-                assigns.append(Assign(assign.terminal.function, assign))
-            problem = AssignmentProblem(inst.component, assigns)
+                if not assign.terminal.group in assigns:
+                    assigns[assign.terminal.group] = BusAssign()
+                assigns[assign.terminal.group].add_assign(Assign(assign.terminal.function, assign))
+            problem = AssignmentProblem(inst.component, assigns.values())
             try:
                 problem.solve()
                 assert problem.check_solution() is None
@@ -20,8 +22,9 @@ class Compiler(object):
                 print('Failed to pinassign', str(inst))
                 raise
 
-            for assign in assigns:
-                assign.meta.terminal.pin = assign.pin
+            for bus_assign in assigns.values():
+                for assign in bus_assign:
+                    assign.meta.terminal.pin = assign.pin
 
         self.netlist.to_graphviz().render('net.dot')
 

@@ -49,12 +49,16 @@ class BusAssign(object):
         _uuid = uuid.uuid4()
         self.z3_bus = Int(str(_uuid) + '_bus')
 
-        self.assigns = assigns
+        self.assigns = []
         self.constraints = []
 
+        for assign in assigns:
+            self.add_assign(assign)
+
+    def add_assign(self, assign):
         # All assignments in a BusAssign need to have a the same bus
-        for assign in self.assigns:
-            self.constraints.append(self.z3_bus == assign.z3_bus)
+        self.assigns.append(assign)
+        self.constraints.append(self.z3_bus == assign.z3_bus)
 
     def eval(self, model):
         self.bus = model[self.z3_bus].as_long()

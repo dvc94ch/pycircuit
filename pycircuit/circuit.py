@@ -54,10 +54,11 @@ class Terminal(object):
     pass
 
 class InstTerminal(Terminal):
-    def __init__(self, inst, function):
+    def __init__(self, inst, function, group):
         self.inst = inst
         self.function = function
         self.pin = None
+        self.group = group
 
     def __str__(self):
         return self.function
@@ -93,12 +94,18 @@ class Inst(CircuitElement):
 
     def __setitem__(self, function, to):
         if isinstance(function, tuple):
+            group = uuid.uuid4()
             for function, to in zip(function, to):
-                self[function] = to
+                self._assign(function, to, group)
         else:
-            assert self.component.has_function(function)
-            terminal = InstTerminal(self, function)
-            self.parent.assign(terminal, to)
+            self._assign(function, to, uuid.uuid4())
+
+    def _assign(self, function, to, group=False):
+        assert self.component.has_function(function)
+        if not self.component.is_busfun(function):
+            group = uuid.uuid4()
+        terminal = InstTerminal(self, function, group)
+        self.parent.assign(terminal, to)
 
     def __repr__(self):
         inst = 'inst %s of %s {\n' % (self.name, self.component.name)
@@ -137,28 +144,19 @@ class SubInst(CircuitElement):
 
 # Circuit decorator
 def circuit(name):
-
     def closure(function):
-
         def wrapper(*args, **kwargs):
             # Save active circuit
             parent = Circuit.active_circuit
-
             # Create new circuit
             circuit = Circuit(name)
-
             # Set active circuit
             Circuit.active_circuit = circuit
-
             function(*args, **kwargs)
-
             # Reset active circuit
             Circuit.active_circuit = parent
-
             return circuit
-
         return wrapper
-
     return closure
 
 
