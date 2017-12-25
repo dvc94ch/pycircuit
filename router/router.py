@@ -24,7 +24,7 @@ from monosat import *
 import argparse
 from time import time
 from collections import defaultdict
-import pcrt
+import router.pcrt as pcrt
 import itertools
 from shapely.geometry import Point, LineString, MultiLineString
 from shapely.ops import linemerge
@@ -67,12 +67,12 @@ def BVEQ(bva,bvb):
 # only has 2-terminal nets, router.py is recommended, as it's encoding is more
 # efficient.
 
-def route_multi(filename, monosat_args, maxflow_enforcement_level,
+def route_multi(filein, fileout, monosat_args, maxflow_enforcement_level,
                 flowgraph_separation_enforcement_style=0,
                 graph_separation_enforcement_style=1,
                 heuristicEdgeWeights=False):
-    (width, height), diagonals, nets, constraints, disabled = pcrt.read(filename)
-    print(filename)
+    (width, height), diagonals, nets, constraints, disabled = pcrt.read(filein)
+    print(filein)
     print("Width = %d, Height = %d, %d nets, %d constraints" %
           (width, height, len(nets), len(constraints)))
     if diagonals:
@@ -609,10 +609,6 @@ def route_multi(filename, monosat_args, maxflow_enforcement_level,
 
         print("Solved!")
 
-        filename = filename.split('.')
-        filename[-1] = 'out.pcrt'
-        filename = '.'.join(filename)
-
         nets_coords = []
         for i, net in enumerate(nets):
             nets_coords.append(set())
@@ -644,7 +640,7 @@ def route_multi(filename, monosat_args, maxflow_enforcement_level,
                     nets_lines[-1].append(line)
 
         nets = nets_lines
-        with open(filename, 'w') as f:
+        with open(fileout, 'w') as f:
             print('G', width, height, file=f)
             for net in nets:
                 segs = [','.join([vid(x, y) for x, y in net_seg]) for net_seg in net]
@@ -655,11 +651,68 @@ def route_multi(filename, monosat_args, maxflow_enforcement_level,
         print("s UNSATISFIABLE")
         sys.exit(1)
 
+class Router(object):
+    def __init__(self, monosat_args=[], use_maxflow=0, separate_graphs=2,
+                 enforce_separate=0, amo_builtin_size=20, heuristic_edge_weights=0):
+        '''Initialize Router with settings.
+
+        Keyword arguments:
+        use-maxflow -- (default 0) (choices range(0, 5))
+            Set to >= 1 to enable redundant, over-approximative maximum flow
+            constraints, which can help the solver prune bad solutions early.
+            Options 2, 3, 4 control heuristic interactions between the flow
+            constraints and the routing constraints in the solver.
+
+        separate-graphs -- (default 2) (choices range(1, 4))
+            This controls the type of constraint that prevents nets from
+            intersecting. All three are reasonable choices.
+
+        enforce-separate -- (default 0) (choices range(0, 4))
+            This controls the type of constraint used to prevent nets from
+            intersecting with each other in the maximum flow constraint, IF
+            maxflow constraints are used.
+
+        amo-builtin-size -- (default 20)
+            The largest at-most-one constraint size to manually build instead of
+            using builtin AMO solver.
+
+        heuristic-edge-weights -- (default 0) (choices range(0, 2))
+            This enables a heuristic which sets assigned edges to unit weight,
+            to encourage edge-reuse in solutions in the solver.
+        '''
+
+
+        # default argument for MonoSAT; enables the heuristics described in
+        # "Routing Under Constraints", FMCAD 2016, A. Nadel
+        monosat_args.append('-ruc')
+
+        assert use_maxflow in range(0, 5)
+        assert separate_graphs in range(1, 4)
+        assert enforce_separate in range(0, 4)
+        assert heuristic_edge_weights in range(0, 2)
+
+        self.monosat_args = monosat_args
+        self.use_maxflow = use_maxflow
+        self.enforce_separate = enforce_separate
+        self.separate_graphs = separate_graphs
+        self.amo_builtin_size = amo_builtin_size
+        self.heuristic_edge_weights = heuristic_edge_weights
+
+    def route(self, filein, fileout):
+        global at_most_one_builtin_size
+        at_most_one_builtin_size = self.amo_builtin_size
+
+        route_multi(filein, fileout,
+                    self.monosat_args,
+                    self.use_maxflow,
+                    self.enforce_separate,
+                    self.separate_graphs,
+                    self.heuristic_edge_weights > 0)
+
+
 if __name__ == '__main__':
     import sys
 
-    # default argument for MonoSAT; enables the heuristics described in
-    # "Routing Under Constraints", FMCAD 2016, A. Nadel
     monosat_args = ['-ruc']
 
     parser = argparse.ArgumentParser(description='SAT-based, constrained multi-terminal routing')
@@ -688,16 +741,16 @@ if __name__ == '__main__':
                         which sets assigned edges to unit weight, to encourage
                         edge-reuse in solutions in the solver.''')
 
-    parser.add_argument('filename', type=str)
+    parser.add_argument('filein', type=str)
+    parser.add_argument('fileout', type=str)
 
     args, unknown = parser.parse_known_args()
-
-    at_most_one_builtin_size=args.amo_builtin_size
 
     if len(unknown) > 0:
         print("Passing unrecognized arguments to monosat: " + str(unknown))
         monosat_args = unknown
 
-    route_multi(args.filename, monosat_args, args.use_maxflow,
-                args.enforce_separate, args.separate_graphs,
-                args.heuristic_edge_weights > 0)
+    router = Router(monosat_args, args.use_maxflow, args.enforce_separate,
+                    args.separate_graphs, args.heuristic_edge_weights)
+
+    router.route(args.filein, args.fileout)
