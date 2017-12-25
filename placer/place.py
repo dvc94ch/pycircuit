@@ -1,80 +1,85 @@
+import json
 from z3 import *
-from box import Z3Box
-from bin import Z3Bin
-from grid import Grid
+from placer.box import Z3Box
+from placer.bin import Z3Bin
+from placer.grid import Grid
 
-def place(nodes):
-    boxes = []
-    min_area = 0
+class Placer(object):
+    def __init__(self):
+        pass
 
-    for node in nodes:
-        box = Z3Box.from_dict(node)
-        min_area += box.area()
-        boxes.append(box)
+    def from_file(self, path):
+        with open(path) as f:
+            self.nodes = json.loads(f.read())
 
-    pcb = Z3Bin()
+    def to_file(self, path):
+        with open(path, 'w+') as f:
+            print(json.dumps(self.result), file=f)
 
-    s = Solver()
+    def place(self, filein, fileout):
+        self.from_file(filein)
 
-    s.add(pcb.range_constraint())
+        boxes = []
+        min_area = 0
 
-    for i, box in enumerate(boxes):
-        # Add rotation constraints
-        s.add(box.rotation_constraint())
-        # Constrain position to be on the pcb
-        s.add(box.range_constraint(pcb))
-        for j in range(i):
-            # Add non overlapping constraint
-            s.add(box.overlap_constraint(boxes[j]))
+        for node in self.nodes:
+            box = Z3Box.from_dict(node)
+            min_area += box.area()
+            boxes.append(box)
 
-    # Project constraints:
-    #s.add(pcb.var_width == 170)
-    #s.add(pcb.var_height == 50)
-    s.add(pcb.area_constraint(min_area * 1.5))
+        pcb = Z3Bin()
 
-    #s.add(boxes[0].fix_position_constraint(*pcb.var_center()))
+        s = Solver()
 
-    if s.check() == sat:
-        model = s.model()
+        s.add(pcb.range_constraint())
 
-        pcb.eval(model)
-        print(str(pcb))
+        for i, box in enumerate(boxes):
+            # Add rotation constraints
+            s.add(box.rotation_constraint())
+            # Constrain position to be on the pcb
+            s.add(box.range_constraint(pcb))
+            for j in range(i):
+                # Add non overlapping constraint
+                s.add(box.overlap_constraint(boxes[j]))
 
-        grid = Grid(*pcb.dim())
+        # Project constraints:
+        #s.add(pcb.var_width == 170)
+        #s.add(pcb.var_height == 50)
+        s.add(pcb.area_constraint(min_area * 1.5))
 
-        result = []
-        for box in boxes:
-            box.eval(model)
-            print(str(box))
-            result.append(box.to_dict())
-            grid.add_box(box)
+        #s.add(boxes[0].fix_position_constraint(*pcb.var_center()))
 
-        print(str(grid))
-        return result
-    else:
-        print('unsat')
-        return []
+        if s.check() == sat:
+            model = s.model()
+
+            pcb.eval(model)
+            print(str(pcb))
+
+            grid = Grid(*pcb.dim())
+
+            self.result = []
+            for box in boxes:
+                box.eval(model)
+                print(str(box))
+                self.result.append(box.to_dict())
+                grid.add_box(box)
+
+            print(str(grid))
+
+            self.to_file(fileout)
+        else:
+            print('unsat')
 
 
 if __name__ == '__main__':
     import argparse
-    import json
 
     parser = argparse.ArgumentParser(description='SMT-based, constrained placement')
 
-    parser.add_argument('filename', type=str)
+    parser.add_argument('filein', type=str)
+    parser.add_argument('fileout', type=str)
 
     args, unknown = parser.parse_known_args()
 
-    fileout = args.filename.split('.')
-    fileout[-1] = 'out.pcpl'
-    fileout = '.'.join(fileout)
-
-    input = ""
-    with open(args.filename) as f:
-        input = json.loads(f.read())
-
-    result = place(input)
-
-    with open(fileout, 'w') as f:
-        print(json.dumps(result), file=f)
+    placer = Placer()
+    placer.place(args.filein, args.fileout)
