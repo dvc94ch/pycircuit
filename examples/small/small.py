@@ -1,5 +1,4 @@
 from pycircuit.circuit import *
-from pycircuit.compiler import *
 from pycircuit.library import *
 
 
@@ -21,40 +20,40 @@ Component('MCU', 'Microcontroller',
           Io('GPIO_7', Fun('GPIO')))
 
 Device('MCUQFN16', 'MCU', 'QFN16',
-       Map(1, 'GPIO_1'),
-       Map(2, 'GPIO_2'),
-       Map(3, 'GPIO_3'),
-       Map(4, 'GPIO_4'),
-       Map(5, 'VCC'),
-       Map(6, 'GND'),
-       Map(7, 'GPIO_5'),
-       Map(8, 'GPIO_6'),
-       Map(9, 'XTAL_XI'),
-       Map(10, 'XTAL_XO'),
-       Map(11, 'GPIO_7'),
-       Map(12, 'JTAG_TCK'),
-       Map(13, 'JTAG_TDO'),
-       Map(14, 'JTAG_TMS'),
-       Map(15, 'JTAG_TDI'),
-       Map(16, None),
-       Map(17, 'GND'))
+       Map('1', 'GPIO_1'),
+       Map('2', 'GPIO_2'),
+       Map('3', 'GPIO_3'),
+       Map('4', 'GPIO_4'),
+       Map('5', 'VCC'),
+       Map('6', 'GND'),
+       Map('7', 'GPIO_5'),
+       Map('8', 'GPIO_6'),
+       Map('9', 'XTAL_XI'),
+       Map('10', 'XTAL_XO'),
+       Map('11', 'GPIO_7'),
+       Map('12', 'JTAG_TCK'),
+       Map('13', 'JTAG_TDO'),
+       Map('14', 'JTAG_TMS'),
+       Map('15', 'JTAG_TDI'),
+       Map('16', None),
+       Map('17', 'GND'))
 
 Device('BAT0805', 'BAT', '0805',
-       Map(1, 'VCC'),
-       Map(2, 'GND'))
+       Map('1', '+'),
+       Map('2', '-'))
 
 Device('OSC0805', 'XTAL', '0805',
-       Map(1, '1'),
-       Map(2, '2'))
+       Map('1', '1'),
+       Map('2', '2'))
 
 
 @circuit('LED')
 def led():
     _in, gnd = ports('IN GND')
-    n1 = Net('n1')
+    n = Net('n1')
 
-    Inst('Rs', 'R')['~', '~'] = _in, n1
-    Inst('LED', 'D')['A', 'C'] = n1, gnd
+    Inst('Rs', 'R')['~', '~'] = _in, n
+    Inst('LED', 'D')['A', 'C'] = n, gnd
 
 
 @circuit('RGB')
@@ -66,54 +65,21 @@ def rgb():
 
 @circuit('TOP')
 def top():
-    vcc, gnd = nets('VCC GND')
-    xtal_xi, xtal_xo = nets('XTAL_XI XTAL_XO')
-    red, green, blue = nets('RED GREEN BLUE')
-    uart_tx, uart_rx = nets('UART_RX UART_TX')
+    power = nets('VCC GND')
+    clk = nets('XTAL_XI XTAL_XO')
+    gpio = nets('RED GREEN BLUE')
+    uart = bus('UART', 2)
 
-    Inst('BAT1', 'BAT')['+', '-'] = vcc, gnd
-    Inst('OSC1', 'XTAL')['~', '~'] = xtal_xi, xtal_xo
+    Inst('BAT1', 'BAT')['+', '-'] = power
+    Inst('OSC1', 'XTAL')['~', '~'] = clk
 
     with SubInst('RBG1', rgb()) as rgb1:
-        rgb1['RED', 'GREEN', 'BLUE'] = red, green, blue
-        rgb1['GND'] = gnd
+        rgb1['RED', 'GREEN', 'BLUE'] = gpio
+        rgb1['GND'] = power[1]
 
     with Inst('MCU1', 'MCU') as mcu:
-        mcu['VCC', 'GND'] = vcc, gnd
-        mcu['XTAL_XI', 'XTAL_XO'] = xtal_xi, xtal_xo
-        mcu['GPIO', 'GPIO', 'GPIO'] = red, green, blue
-        mcu['UART_TX', 'UART_RX'] = uart_tx, uart_rx
-        mcu['UART_TX', 'UART_RX'] = uart_rx, uart_tx
-
-
-if __name__ == '__main__':
-    Compiler(top())
-
-    '''
-    pcb = Pcb.oshpark_4layer(top())
-
-    for node in pcb.circuit.iter_nodes():
-        fps = list(Footprint.footprints_by_device(node.device))
-        if len(fps) < 1:
-            print('No footprint found for %s' % node.device.name)
-        else:
-            node.set_footprint(fps[0])
-
-    pcb.to_pcpl('small.pcpl')
-    try:
-        pcb.from_pcpl('small.out.pcpl')
-    except FileNotFoundError:
-        print('No small.out.pcpl file.')
-
-    pcb.finalize()
-
-    pcb.to_pcrt('small.pcrt')
-    try:
-        pcb.from_pcrt('small.out.pcrt')
-    except FileNotFoundError:
-        print('No small.out.pcrt file.')
-
-
-    pcb.to_svg().save('pcb.svg')
-    pcb.to_kicad().to_file('small.kicad_pcb')
-'''
+        mcu['VCC', 'GND'] = power
+        mcu['XTAL_XI', 'XTAL_XO'] = clk
+        mcu['GPIO', 'GPIO', 'GPIO'] = gpio
+        mcu['UART_TX', 'UART_RX'] = uart
+        mcu['UART_TX', 'UART_RX'] = uart
