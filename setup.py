@@ -7,7 +7,7 @@ setup(
         'pycircuit.library',
         'pycircuit.formats'
     ],
-    version='0.0.1',
+    version='0.0.2',
     description='Library for composing circuits and pcb layouts',
     long_description=open('README.md').read(),
     author='David Craven',
