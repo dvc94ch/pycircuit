@@ -7,8 +7,8 @@ class Map(object):
 
     def __init__(self, pad, pin):
         '''A Map has a pad name, a pin name and a Footprint.'''
-
-        self.pad = str(pad)
+        assert not (pad is None and pin is None)
+        self.pad = pad
         self.pin = pin
         self.device = None
 
@@ -46,9 +46,18 @@ class Device(object):
     def add_map(self, map):
         '''Adds a map to Device.'''
 
-        pin = self.component.pin_by_name(map.pin)
-        pad = self.package.pad_by_name(map.pad)
-        assert not pin is None or not pad is None
+        pin = map.pin
+        pad = map.pad
+
+        if pin is not None:
+            pin = self.component.pin_by_name(pin)
+            assert pin is not None
+        if pad is not None:
+            pad = self.package.pad_by_name(pad)
+            assert pad is not None
+
+        if pad is None:
+            assert pin.optional
 
         map.pin = pin
         map.pad = pad
@@ -59,37 +68,19 @@ class Device(object):
         '''Checks that every Pin and every Pad has a Map.'''
 
         for pin in self.component.pins:
-            maps = list(self._maps_by_pin(pin))
-            if len(maps) > 1:
-                # No pad can be None
-                for map in maps:
-                    assert not map.pad is None
-            elif len(maps) > 0:
-                # If pin is required pad can't be None
-                if not pin.optional:
-                    assert not maps[0].pad is None
+            for map in self.maps:
+                if map.pin == pin:
+                    break
             else:
-                # At least one Map per Pin
-                assert True
-
+                raise AssertionError('No map for component %s pin %s in device %s' \
+                                     % (self.component.name, pin.name, self.name))
         for pad in self.package.pads:
-            maps = list(self._maps_by_pad(pad))
-            # At least one Map per Pad
-            assert len(maps) > 0
-
-    def _maps_by_pad(self, pad):
-        '''Returns the map with pad.'''
-
-        for map in self.maps:
-            if map.pad == pad:
-                yield map
-
-    def _maps_by_pin(self, pin):
-        '''Returns the maps with pin.'''
-
-        for map in self.maps:
-            if map.pin == pin:
-                yield map
+            for map in self.maps:
+                if map.pad == pad:
+                    break
+            else:
+                raise AssertionError('No map for package %s pad %s in device %s' \
+                                     % (self.package.name, pad.name, self.name))
 
     def pin_by_pad(self, pad):
         '''Returns the pin mapped to pad.'''
