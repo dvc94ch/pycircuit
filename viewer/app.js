@@ -3,8 +3,9 @@ var app = express();
 var path = require('path');
 
 var index = path.join(__dirname, 'index.html');
-var net = path.join(process.cwd(), process.argv[2]);
-var pcb = path.join(process.cwd(), process.argv[3]);
+var port = process.argv[2];
+var net = path.join(process.cwd(), process.argv[3]);
+var pcb = path.join(process.cwd(), process.argv[4]);
 
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use('/js', express.static(path.join(__dirname, 'js')));
@@ -21,8 +22,8 @@ app.get('/pcb', function(req, res) {
     res.sendFile(pcb);
 });
 
-app.listen(3000, function () {
-    console.log('Viewer listening on port 3000!');
+app.listen(port, function () {
+    console.log('Viewer listening on port', port);
     console.log('net file:', net);
     console.log('pcb file:', pcb);
 });

@@ -1,196 +1,101 @@
 # Circuit Description Library
 
-Attempts to make designing and building electronics easy and fun by
-making design reuse and collaboration simple and making design intent
-explicit.
+## Getting started
 
-Supports autoplacing and autorouting engines. An example autoplacer
-using Z3 is provided, and an example autorouter using monosat.
-
-## Devices
-
-```python
-from pycircuit.device import *
-
-Device('MCU', pins=[
-       Pin('GND'),
-       Pin('VCC'),
-       Pin('XTAL_XI', Fun('XTAL', 'XI')),
-       Pin('XTAL_XO', Fun('XTAL', 'XO')),
-       Pin('JTAG_TCK', Fun('JTAG', 'TCK')),
-       Pin('JTAG_TDO', Fun('JTAG', 'TDO')),
-       Pin('JTAG_TMS', Fun('JTAG', 'TMS')),
-       Pin('JTAG_TDI', Fun('JTAG', 'TDI')),
-       Pin('GPIO_1', 'GPIO', Fun('UART1', 'UART', 'TX')),
-       Pin('GPIO_2', 'GPIO', Fun('UART1', 'UART', 'RX')),
-       Pin('GPIO_3', 'GPIO'),
-       Pin('GPIO_4', 'GPIO'),
-       Pin('GPIO_5', 'GPIO', Fun('UART2', 'UART', 'TX')),
-       Pin('GPIO_6', 'GPIO', Fun('UART2', 'UART', 'RX')),
-       Pin('GPIO_7', 'GPIO')
-       ])
-```
-
-## Packages
-
-```python
-from pycircuit.package import *
-
-Package('0805', IPCGrid(4, 8), TwoPads(1.9),
-        package_size=(1.4, 2.15), pad_size=(1.5, 1.3))
-
-Package('QFN16', RectCrtyd(5.3, 5.3), QuadPads(16, pitch=0.65, radius=2, thermal_pad=2.5),
-        package_size=(5, 5), pad_size=(0.35, 0.8))
-```
-
-## Footprints
-
-```python
-from pycircuit.footprint import *
-
-Footprint('MCUQFN16', 'MCU', 'QFN16',
-          Map(1, 'GPIO_1'),
-          Map(2, 'GPIO_2'),
-          Map(3, 'GPIO_3'),
-          Map(4, 'GPIO_4'),
-          Map(5, 'VCC'),
-          Map(6, 'GND'),
-          Map(7, 'GPIO_5'),
-          Map(8, 'GPIO_6'),
-          Map(9, 'XTAL_XI'),
-          Map(10, 'XTAL_XO'),
-          Map(11, 'GPIO_7'),
-          Map(12, 'JTAG_TCK'),
-          Map(13, 'JTAG_TDO'),
-          Map(14, 'JTAG_TMS'),
-          Map(15, 'JTAG_TDI'),
-          Map(17, 'GND'))
-```
-
-## Circuits
-
+`joule_thief.py`
 ```python
 from pycircuit.circuit import *
+from pycircuit.library import *
 
-@circuit('LED')
-def led():
-    Node('Rs', 'R')
-    Node('LED', 'D')
 
-    Net('IN') + Ref('Rs')['~']
-    Ref('Rs')['~'] + Ref('LED')['A']
-    Ref('LED')['K'] + Net('GND')
+Device('BAT0805', 'BAT', '0805',
+       Map('1', '+'),
+       Map('2', '-'))
 
-@circuit('RGB')
-def rgb():
-    Sub('RED', led())
-    Sub('GREEN', led())
-    Sub('BLUE', led())
+Package('TDK ACT45B', RectCrtyd(5.9, 3.4), DualPads(4, 2.5, radius=2.275),
+        package_size=(5.9, 3.4), pad_size=(0.9, 1.35))
 
-    for net in ['RED', 'GREEN', 'BLUE']:
-        Net(net) + Ref(net)['IN']
-    Net('GND') + Refs()['GND']
+Device('TDK ACT45B', 'Transformer_1P_1S', 'TDK ACT45B',
+       Map('1', 'L1.1'), Map('2', 'L2.1'), Map('3', 'L2.2'), Map('4', 'L1.2'))
+
 
 @circuit('TOP')
 def top():
-    Node('BAT1', 'BAT')
-    Node('OSC1', 'XTAL')
-    Node('MCU1', 'MCU')
-    Sub('RGB1', rgb())
+    vcc, gnd, n1, n2, n3 = nets('VCC GND n1 n2 n3')
 
-    Net('VCC') + Refs()['VCC']
-    Net('GND') + Refs()['GND']
-    Ref('MCU1')['XTAL'] + Ref('OSC1')['XTAL']
-    Ref('MCU1')['UART']['RX', 'TX'] + Ref('MCU1')['UART']['TX', 'RX']
-    Ref('MCU1')['GPIO'] + Ref('RGB1')['RED', 'GREEN', 'BLUE']
+    with Inst('TR1', 'Transformer_1P_1S') as tr1:
+        tr1['L1', 'L1'] = n1, n2
+        tr1['L2', 'L2'] = vcc, n3
+
+    Inst('BAT1', 'BAT')['+', '-'] = vcc, gnd
+    Inst('R1', 'R', '10k 0805')['~', '~'] = vcc, n1
+    Inst('Q1', 'Q', 'npn sot23')['B', 'C', 'E'] = n2, n3, gnd
+    Inst('LED1', 'D', 'led red 0805')['A', 'C'] = n3, gnd
 ```
 
-## Assign footprints
-
+`build.py`
 ```python
-from pycircuit.pcb import *
+import joule_thief
+from pycircuit.build import Builder
+from pycircuit.compiler import Compiler
+from pycircuit.library.design_rules import oshpark_4layer
+from placer import Placer
+from router import Router
+from pykicad.pcb import Zone
 
-circuit = top()
 
-# Decoupling schematic capture from layout
-# means that we have to manually construct
-# NodeAttributes for each node.
-for node in circuit.iter_nodes():
-    node.attrs = NodeAttributes(node)
+def compile(filein, fileout):
+    compiler = Compiler()
+    compiler.compile(filein, fileout)
 
-# Set footprints
-for node in circuit.nodes_by_device('R'):
-    node.set_footprint('R0805')
 
-for node in circuit.nodes_by_device('D'):
-    node.set_footprint('D0805')
+def place(filein, fileout):
+    placer = Placer()
+    placer.place(filein, fileout)
 
-circuit.node_by_name('OSC1').set_footprint('OSC0805')
-circuit.node_by_name('BAT1').set_footprint('BAT0805')
 
-mcu1 = circuit.node_by_name('MCU1')
-mcu1.set_footprint('MCUQFN16')
+def route(filein, fileout):
+    router = Router()
+    router.route(filein, fileout)
+
+
+def post_process(pcb, kpcb):
+    xmin, ymin, xmax, ymax = pcb.boundary()
+    coords = [(xmin, ymin), (xmin, ymax), (xmax, ymax), (xmax, ymin)]
+
+    zone = Zone(net_name='GND', layer='F.Cu',
+                polygon=coords, clearance=0.3)
+
+    kpcb.zones.append(zone)
+    return kpcb
+
+
+if __name__ == '__main__':
+    Builder('joule_thief', joule_thief.top, oshpark_4layer,
+            compile, place, route, post_process).build()
 ```
 
-## Place
+`Makefile`
+```make
+PYCIRCUIT = ../..
 
-```python
-i = 0
-for node in circuit.iter_nodes():
-    if node.footprint.package.name == '0805':
-        node.place(i * 5, 0, 90)
-        i += 1
+build:
+	python3 build.py
 
-mcu1.place(10, 10)
-mcu1.flip()
+view:
+	node $(PYCIRCUIT)/viewer/app.js 3000 net.dot.svg pcb.svg
 
-# Show some statistics
-bat = circuit.node_by_name('BAT1')
-print('MCU1 area:', mcu1.area())
-print('BAT1 area:', bat.area())
-print('MCU1 intersects itself:', mcu1.intersects(mcu1))
-print('MCU1 intersects BAT1:', mcu1.intersects(bat))
+kicad:
+	pcbnew *.kicad_pcb &>/dev/null &
 
-for net in circuit.iter_nets():
-    print('net', net.name, net.half_perimeter_length())
+clean:
+	rm -f *.net *.hash *.dot *.svg *.place *.route *.pro *.kicad_pcb
+
+.PHONY: build view kicad clean
 ```
 
-## Route
-
-```python
-pcb = Pcb(circuit)
-pcb.move_to('BAT1', '1')
-dist = pcb.distance('MCU1', '5')
-pcb.segment(dy=dist[1])
-pcb.via()
-pcb.segment_to('MCU1', '5')
-
-# Print some more statistics
-print(pcb.net.length())
-```
-
-## Export
-
-```python
-from pycircuit.export import *
-
-# Export circuit to graph
-export_circuit_to_graphviz(circuit)
-# Export pcb to svg
-export_pcb_to_svg(pcb)
-
-# Convert pcb to kicad
-kpcb = pcb_to_kicad(pcb)
-# Use pykicad to postprocess the pcb
-# Save pcb to file
-export_pcb(kpcb)
-```
-
-![Graphviz](https://user-images.githubusercontent.com/741807/33948211-a306313a-e026-11e7-86c6-e07ea202af9a.png)
-![SVG](https://user-images.githubusercontent.com/741807/33948212-a3320544-e026-11e7-8b61-f16453c99eff.png)
-![SVG](https://user-images.githubusercontent.com/741807/33948213-a351320c-e026-11e7-97d2-cac0b53ec065.png)
-![KiCad](https://user-images.githubusercontent.com/741807/28041533-23af0726-65ca-11e7-8759-b010181a5372.png)
-
+![Viewer](https://user-images.githubusercontent.com/741807/34364054-39b1362e-ea82-11e7-94b7-baf712e1aeab.png)
+![KiCad](https://user-images.githubusercontent.com/741807/34364057-43e7ee62-ea82-11e7-9787-84fefaecbc49.png)
 
 # License
 ISC License
