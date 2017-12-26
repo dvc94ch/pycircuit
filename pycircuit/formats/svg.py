@@ -1,7 +1,6 @@
 import xml.etree.cElementTree as xml
-from pycircuit.circuit import Node
 from pycircuit.package import Package
-from pycircuit.pcb import Pcb, Via, Segment, Layer
+from pycircuit.pcb import Pcb, InstAttributes, Via, Segment, Layer
 from pycircuit.formats import extends
 
 
@@ -181,11 +180,11 @@ def to_svg(self):
         .append(svg_crtyd, svg_pads, svg_ref)
 
 
-@extends(Node)
+@extends(InstAttributes)
 def to_svg(self):
-    package = self.footprint.package.to_svg()
+    package = self.inst.device.package.to_svg()
     crtyd, pads, ref = package.children
-    ref.set_text(self.name)
+    ref.set_text(self.inst.name)
     package = SvgGroup('package', crtyd, pads, ref)
     package.translate(self.x, self.y).rotate(-self.angle)
     if self.flipped:
@@ -230,8 +229,9 @@ def to_svg(self):
 
 
 @extends(Pcb)
-def to_svg(self):
-    svg = SvgRoot(self.outline())
+def to_svg(self, path):
+    bounds = self.boundary()
+    svg = SvgRoot(bounds)
 
     #graph = SvgGroup('graph')
     #for i, ij in self.rbs.graph.edges.items():
@@ -241,22 +241,22 @@ def to_svg(self):
     #        graph.append(SvgLine((n1.x, n1.y), (n2.x, n2.y)))
     #svg.append(graph)
 
-    grid = SvgGroup('grid')
-    grid_size = 0.05
-    grid_width = int(self.width / grid_size + 1)
-    grid_height = int(self.height / grid_size + 1)
-    for ix in range(grid_width):
-        x = ix * grid_size + self.bounds[0]
-        grid.append(SvgLine((x, self.bounds[1]), (x, self.bounds[3])))
-    for iy in range(grid_height):
-        y = iy * grid_size + self.bounds[1]
-        grid.append(SvgLine((self.bounds[0], y), (self.bounds[2], y)))
-    svg.append(grid)
+    #grid = SvgGroup('grid')
+    #grid_size = 0.05
+    #grid_width = int(self.width / grid_size + 1)
+    #grid_height = int(self.height / grid_size + 1)
+    #for ix in range(grid_width):
+    #    x = ix * grid_size + bounds[0]
+    #    grid.append(SvgLine((x, bounds[1]), (x, bounds[3])))
+    #for iy in range(grid_height):
+    #    y = iy * grid_size + bounds[1]
+    #    grid.append(SvgLine((bounds[0], y), (bounds[2], y)))
+    #svg.append(grid)
 
-    for node in self.circuit.iter_nodes():
-        svg.append(node.to_svg())
+    for inst in self.netlist.insts:
+        svg.append(inst.attributes.to_svg())
 
     for layer in self.layers:
         svg.append(layer.to_svg())
 
-    return svg
+    svg.save(path)

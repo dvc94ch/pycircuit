@@ -1,7 +1,6 @@
 import pykicad as ki
-from pycircuit.circuit import Node, Net
 from pycircuit.package import Package, Courtyard, Pad
-from pycircuit.pcb import Pcb, Via, Segment
+from pycircuit.pcb import Pcb, Via, Segment, InstAttributes, NetAttributes
 from pycircuit.formats import extends, polygon_to_lines
 from shapely.ops import polygonize
 
@@ -69,61 +68,55 @@ def to_kicad(package):
     return kmod
 
 
-@extends(Node)
+@extends(InstAttributes)
 def to_kicad(self):
-    kmodule = self.footprint.package.to_kicad()
+    kmodule = self.inst.device.package.to_kicad()
     if self.flipped:
         kmodule.flip()
     if self.angle is not None:
         kmodule.rotate(self.angle)
     kmodule.place(self.x, self.y)
-    kmodule.set_reference(self.name)
-    kmodule.set_value(self.device.name)
+    kmodule.set_reference(self.inst.name)
+    kmodule.set_value(self.inst.component.name)
     return kmodule
 
 
-@extends(Via)
-def to_kicad(self):
-    return ki.pcb.Via(at=list(self.coord)[0:2], net=self.net.id,
-                      size=self.diameter(), drill=self.drill())
-
-
-@extends(Segment)
-def to_kicad(self):
-    layer = 'F.Cu' if self.layer.name == 'top' else 'B.Cu'
-    return ki.pcb.Segment(start=list(self.start)[0:2],
-                          end=list(self.end)[0:2],
-                          net=self.net.id, width=self.width(),
-                          layer=layer)
-
-@extends(Net)
-def to_kicad(self):
-    return ki.module.Net(str(self), self.id)
-
-
 @extends(Pcb)
-def to_kicad(pcb):
-    kpcb = ki.pcb.Pcb(title=pcb.circuit.name)
+def to_kicad(self):
+    kpcb = ki.pcb.Pcb(title=self.netlist.name)
 
-    for node in pcb.circuit.iter_nodes():
-        kpcb.modules.append(node.to_kicad())
+    # Add kicad modules
+    for inst in self.netlist.insts:
+        kpcb.modules.append(inst.attributes.to_kicad())
 
-
-    for net in pcb.circuit.iter_nets():
-        knet = net.to_kicad()
+    # Add kicad nets, segments and vias and connect modules
+    for i, net in enumerate(self.netlist.nets):
+        # Kicad nets need to have an id > 0
+        knet_code = i + 1
+        knet = ki.module.Net(net.name, knet_code)
         kpcb.nets.append(knet)
 
-        for port in net.iter_ports():
-            for pad in port.pads:
-                kpcb.module_by_reference(port.node.name).connect(pad.name, knet)
+        for abspad in net.attributes.iter_pads():
+            kpcb.module_by_reference(abspad.inst.name) \
+                .connect(abspad.pad.name, knet)
 
-        for seg in net.segments:
-            kpcb.segments.append(seg.to_kicad())
+        for seg in net.attributes.segments:
+            layer = 'F.Cu' if seg.layer.name == 'top' else 'B.Cu'
+            kseg = ki.pcb.Segment(start=list(seg.start)[0:2],
+                                  end=list(seg.end)[0:2],
+                                  net=knet_code, width=seg.width(),
+                                  layer=layer)
+            kpcb.segments.append(kseg)
 
-        for via in net.vias:
-            kpcb.vias.append(via.to_kicad())
+        for via in net.attributes.vias:
+            kvia  = ki.pcb.Via(at=list(via.coord)[0:2],
+                               net=knet_code,
+                               size=self.diameter(),
+                               drill=self.drill())
+            kpcb.vias.append(kvia)
 
-    left, top, right, bottom = pcb.outline()
+    # Add a pcb outline
+    left, top, right, bottom = self.boundary()
     outline = [(left, top), (right, top), (right, bottom), (left, bottom)]
 
     for start, end in polygon_to_lines(outline):
