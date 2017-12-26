@@ -1,7 +1,8 @@
 import numpy as np
 import shapely.ops as ops
 from shapely.geometry import *
-from pycircuit.device import *
+from pycircuit.circuit import Netlist
+from pycircuit.device import Device
 
 
 class Matrix(object):
@@ -77,7 +78,7 @@ class Segment(object):
         self.end = end
         self.layer = layer
 
-        self.net.segments.append(self)
+        self.net.attributes.segments.append(self)
         self.layer.segments.append(self)
 
     def width(self):
@@ -100,7 +101,7 @@ class Via(object):
         self.coord = coord
         self.layers = layers
 
-        self.net.vias.append(self)
+        self.net.attributes.vias.append(self)
         for layer in layers:
             layer.vias.append(self)
 
@@ -115,26 +116,23 @@ class Via(object):
             yield layer
 
 
-class PortAttributes(object):
-    def __init__(self, port, pads):
-        self.port = port
-        self.pads = pads
+class AbsolutePad(object):
+    def __init__(self, inst, pad, matrix):
+        self.inst = inst
+        self.pad = pad
+        self.location = matrix.dot(pad.location)
+        self.size = pad.size
 
-    def iter_pads(self):
-        '''Returns an iterator over the ports coordinates.'''
-
-        for pad in self.pads:
-            yield self.port.node.pad_location(pad)
+    def __repr__(self):
+        return 'pad %s %s' % (self.inst.name, self.pad.name)
 
 
 class NetAttributes(object):
     def __init__(self, net, pcb):
         self.net = net
+        self.net.attributes = self
         self.pcb = pcb
 
-        # topological information
-        self.routes = []
-        # geometric information
         self.net_class = NetClass(pcb.net_class)
         self.segments = []
         self.vias = []
@@ -142,9 +140,11 @@ class NetAttributes(object):
     def iter_pads(self):
         '''Iterator over all coordinates belonging to the net.'''
 
-        for port in self.net.iter_ports():
-            for location in port.iter_pads():
-                yield location
+        for assign in self.net.assigns:
+            inst = assign.terminal.inst
+            pin = assign.terminal.pin
+            for pad in inst.attributes.pads_by_pin(pin):
+                yield pad
 
     def bounds(self):
         '''Returns a tuple (min_x, min_y, max_x, max_y) of all the coordinates
@@ -175,43 +175,48 @@ class NetAttributes(object):
         return length
 
 
-class NodeAttributes(object):
-    def __init__(self, node):
-        self.node = node
+class InstAttributes(object):
+    def __init__(self, inst, pcb):
+        assert isinstance(inst.device, Device)
+
+        self.inst = inst
+        self.inst.attributes = self
+        self.pcb = pcb
+
         self.x = 0
         self.y = 0
         self.angle = 0
         self.flipped = False
         self.matrix = None
 
-        self.footprint = None
-        self.power = 0
+    def get_matrix(self):
+        '''Returns the pad and courtyard transformation matrix.'''
 
-    def set_footprint(self, fp):
-        '''Sets the footprint of a node and assigns pads to all ports.'''
+        transform = np.identity(3)
+        if self.flipped:
+            transform = Matrix.flip()
+        transform = Matrix.rotation(self.angle).dot(transform)
+        return Matrix.translation(self.x, self.y).dot(transform)
 
-        self.footprint = fp
-        for port in self.node.ports:
-            pads = [x for x in self.footprint.pads_by_pin(port.pin)]
-            port.attrs = PortAttributes(self.node, pads)
+    def iter_pads(self):
+        matrix = self.get_matrix()
+        for pad in self.inst.device.package.pads:
+            yield AbsolutePad(self.inst, pad, matrix)
 
-    def set_power(self, power):
-        '''Sets the maximum power dissipated by the node.  Useful for placement
-        algorithms.'''
+    def pad_by_name(self, name):
+        matrix = self.get_matrix()
+        pad = self.inst.device.package.pad_by_name(name)
+        return AbsolutePad(self.inst, pad, matrix)
 
-        self.power = power
+    def pads_by_pin(self, pin):
+        matrix = self.get_matrix()
+        for pad in self.inst.device.pads_by_pin(pin):
+            yield AbsolutePad(self.inst, pad, matrix)
 
-    def pad_by_name(self, pad):
-        '''Finds a pad by it's name.'''
-
-        return self.footprint.package.pad_by_name(pad)
-
-    def pad_location(self, pad):
-        '''Computes the location of a pad using the transformation matrix.'''
-
-        if self.matrix is None:
-            self.update_matrix()
-        return self.matrix.dot(pad.location)
+    def courtyard(self):
+        matrix = self.get_matrix()
+        crtyd = self.inst.device.package.courtyard.polygon
+        return Matrix.transform(crtyd, matrix)
 
     def place(self, x, y, angle=0, flipped=False):
         '''Places the node.'''
@@ -224,7 +229,6 @@ class NodeAttributes(object):
         '''Places the node at (x + dx, y + dy) or if x, y are None moves it
         by (dx, dy).  Invalidates the transformation matrix.'''
 
-        self.matrix = None
         if x is not None:
             self.x = x
         if y is not None:
@@ -235,7 +239,6 @@ class NodeAttributes(object):
     def rotate(self, angle):
         '''Rotates the node by angle.  Invalidates the transformation matrix.'''
 
-        self.matrix = None
         self.angle += angle
 
     def flip(self, flipped=None):
@@ -243,45 +246,10 @@ class NodeAttributes(object):
         that sets the state explicitly.  Invalidates the transformation
         matrix.'''
 
-        self.matrix = None
         if isinstance(flipped, bool):
             self.flipped = flipped
         else:
             self.flipped = not self.flipped
-
-    def update_matrix(self):
-        '''Updates the transformation matrix.'''
-
-        transform = np.identity(3)
-        if self.flipped:
-            transform = Matrix.flip()
-        transform = Matrix.rotation(self.angle).dot(transform)
-        self.matrix = Matrix.translation(self.x, self.y).dot(transform)
-
-    def area(self):
-        '''Returns the area of the courtyard.'''
-
-        return self.footprint.package.courtyard.polygon.area
-
-    def courtyard(self):
-        '''Returns a Polygon of the courtyard after applying the transformation
-        matrix.'''
-
-        if self.matrix is None:
-            self.update_matrix()
-        crtyd = self.footprint.package.courtyard.polygon
-        return Matrix.transform(crtyd, self.matrix)
-
-    def intersection(self, node):
-        '''Returns a Polygon of the intersection of the courtyard with a
-        node.'''
-
-        return self.courtyard().intersection(node.courtyard())
-
-    def intersects(self, node):
-        '''Returns True when the courtyard intersects with a node.'''
-
-        return not self.intersection(node).is_empty
 
 
 class Layer(object):
@@ -306,7 +274,6 @@ class Layer(object):
 
 
 class Layers(object):
-
     def __init__(self, layers):
         for i, layer in enumerate(layers[0:-1]):
             layer.below = layers[i + 1]
@@ -338,139 +305,44 @@ class Layers(object):
 
 
 class Pcb(object):
-    def __init__(self, circuit, layers, net_class, cost_cm2):
-        self.circuit = circuit
+    def __init__(self, netlist, layers, net_class, cost_cm2):
+        self.netlist = netlist
         self.layers = layers
         self.net_class = net_class
         self.edge_clearance = net_class.segment_clearance
         self.cost_cm2 = cost_cm2
 
-        for node in self.circuit.iter_nodes():
-            node.attrs = NodeAttributes(node)
+        for inst in self.netlist.insts:
+            inst.attrs = InstAttributes(inst, self)
 
-        for net in self.circuit.iter_nets():
+        for net in self.netlist.nets:
             net.attrs = NetAttributes(net, self)
 
-        # Current position, layer and net used when creating segments and vias.
-        self.pos = np.array([0, 0, 1])
-        self.layer = self.layers[0]
-        self.net = None
+    def boundary(self):
+        courtyards = []
+        for inst in self.netlist.insts:
+            courtyards.append(inst.attributes.courtyard())
+        bounds = MultiPolygon(courtyards).bounds
+        left = bounds[0] - self.edge_clearance
+        top = bounds[1] - self.edge_clearance
+        right = bounds[2] + self.edge_clearance
+        bottom = bounds[3] + self.edge_clearance
+        return left, top, right, bottom
 
-    def finalize(self):
-        self.courtyards = []
-        for node in self.circuit.iter_nodes():
-            self.courtyards.append(node.courtyard())
-        self.multipolygon = MultiPolygon(self.courtyards)
-        self.bounds = self.multipolygon.bounds
-        self.width = self.bounds[2] - self.bounds[0]
-        self.height = self.bounds[3] - self.bounds[1]
-        self.area = self.multipolygon.area
-        self.cost = self.area / 100 * self.cost_cm2
+    def size(self):
+        bounds = self.boundary()
+        width = bounds[2] - bounds[0]
+        height = bounds[3] - bounds[1]
+        return width, height
+
+    def area(self):
+        size = self.size()
+        return size[0] * size[1]
+
+    def cost(self):
+        return self.area() / 100 * self.cost_cm2
 
     def get_layer(self, name):
         for layer in self.layers:
             if layer.name == name:
                 return layer
-
-    def outline(self):
-        left = self.bounds[0] - self.edge_clearance
-        top = self.bounds[1] - self.edge_clearance
-        right = self.bounds[2] + self.edge_clearance
-        bottom = self.bounds[3] + self.edge_clearance
-        return left, top, right, bottom
-
-    def resolve_pad(self, node, pad):
-        node = self.circuit.node_by_name(node)
-        pad = node.pad_by_name(pad)
-        pin = node.footprint.pin_by_pad(pad)
-        net = node.port_by_pin(pin).net
-        layer_index = -1 if node.flipped else 0
-        layer = self.layers[layer_index]
-        location = node.pad_location(pad)
-        return {
-            'node': node,
-            'pad': pad,
-            'pin': pin,
-            'net': net,
-            'layer': layer,
-            'location': location
-        }
-
-    def distance(self, node, pad):
-        x, y, z = self.resolve_pad(node, pad)['location']
-        return np.array([x, y, 0]) - self.pos
-
-    def move_to(self, node, pad):
-        pad_info = self.resolve_pad(node, pad)
-        self.pos = pad_info['location']
-        self.layer = pad_info['layer']
-        self.net = pad_info['net']
-
-    def move(self, dx=0, dy=0):
-        # Avoid in place updating
-        self.pos = self.pos + np.array([dx, dy, 1])
-
-    def via(self, layer, dia=None, drill=None):
-        # Move cursor to target layer
-        self.layer = self.get_layer(layer)
-
-        net_class = NetClass(self.net_class, via_diameter=dia, via_drill=drill)
-        Via(self.net, net_class, self.pos, layers=self.layers)
-
-    def segment(self, dx=0, dy=0, width=None):
-        net_class = NetClass(self.net_class, segment_width=width)
-
-        start = self.pos
-        self.move(dx, dy)
-
-        segment = Segment(self.net, net_class, start, self.pos, self.layer)
-
-    def segment_to(self, node, pad, width=None):
-        net_class = NetClass(self.net_class, segment_width=width)
-
-        start = self.pos
-        self.move_to(node, pad)
-
-        Segment(self.net, net_class, start, self.pos, self.layer)
-
-    @classmethod
-    def oshpark_4layer(cls, circuit):
-        '''
-        track width: 5mil (0.127mm)
-        track clearance: 5mil (0.127mm)
-        drill: 10mil (0.254mm)
-        annular ring: 4mil (0.102mm)
-
-        via diameter: 2 * annular ring + drill = 18mil (0.457mm)
-        via clearance: track clearance
-        '''
-
-        return cls(circuit, Layers.four_layer_board(oz_outer=1, oz_inner=0.5),
-                   net_class=NetClass(
-                       segment_width=0.15,
-                       segment_clearance=0.15,
-                       via_drill=0.25,
-                       via_diameter=0.5,
-                       via_clearance=0.15),
-                   cost_cm2=1.5)
-
-    @classmethod
-    def oshpark_2layer(cls, circuit):
-       '''
-       track width: 6mil (0.152mm)
-       track clearance: 6mil (0.152mm)
-       drill: 10mil (0.254mm)
-       annular ring: 5mil (0.127mm)
-
-       via diameter: 2 * annular ring + drill = 20mil (0.508mm)
-       via clearance: track clearance
-       '''
-
-       return cls(circuit, Layers.two_layer_board(oz=1),
-                  net_class=NetClass(
-                      segment_width=0.15,
-                      segment_clearance=0.15,
-                      via_drill=0.25,
-                      via_diameter=0.5,
-                      via_clearance=0.15),
-                  cost_cm2=0.75)
