@@ -1,4 +1,4 @@
-from pycircuit.circuit import Circuit, Netlist, SubInstTerminal
+from pycircuit.circuit import Circuit, Netlist
 from pycircuit.device import Device
 from pycircuit.formats import *
 from pycircuit.pinassign import *
@@ -35,12 +35,10 @@ class Compiler(object):
 
         assigns = []
         for assign in circuit.iter_assigns():
-            if isinstance(assign.terminal, SubInstTerminal):
-                continue
             while not assign.is_final():
-                for other_assign in circuit.iter_assigns():
-                    if assign.is_next(other_assign):
-                        assign.next(other_assign)
+                for subinst_assign in circuit.iter_subinst_assigns():
+                    if assign.to == subinst_assign.port:
+                        assign.to = subinst_assign.to
                         break
             assigns.append(assign)
 
@@ -50,9 +48,9 @@ class Compiler(object):
         # Convert CircuitAssign to Assign
         assigns = {}
         for assign in inst.assigns:
-            if not assign.terminal.group in assigns:
-                assigns[assign.terminal.group] = BusAssign()
-            assigns[assign.terminal.group].add_assign(Assign(assign.terminal.function, assign))
+            if not assign.guid in assigns:
+                assigns[assign.guid] = BusAssign()
+            assigns[assign.guid].add_assign(Assign(assign.function, assign))
             problem = AssignmentProblem(inst.component, assigns.values())
             try:
                 problem.solve()
@@ -63,7 +61,7 @@ class Compiler(object):
 
             for bus_assign in assigns.values():
                 for assign in bus_assign:
-                    assign.meta.terminal.pin = assign.pin
+                    assign.meta.pin = assign.pin
 
     def match_device(self, inst):
         devices = list(Device.devices_by_component(inst.component))
@@ -93,7 +91,7 @@ class Compiler(object):
         for pin in inst.component.pins:
             if not pin.optional:
                 for assign in inst.assigns:
-                    if assign.terminal.pin == pin:
+                    if assign.pin == pin:
                         break
                 else:
                     print('Error: Unconnected non-optional pin: %s %s %s'

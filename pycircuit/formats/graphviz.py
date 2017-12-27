@@ -20,6 +20,6 @@ def to_graphviz(self, filename):
     for net in self.nets:
         graph.node(str(net.uid), str(net))
     for assign in self.assigns:
-        _from = '%s:%s' % (str(assign.terminal.inst.uid), str(assign.uid))
+        _from = '%s:%s' % (str(assign.inst.uid), str(assign.uid))
         graph.edge(_from, str(assign.to.uid))
     graph.render(filename)

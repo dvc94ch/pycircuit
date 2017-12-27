@@ -2,7 +2,7 @@ from pycircuit.component import Component, Pin
 from pycircuit.device import Device
 
 
-class uid(object):
+class UID(object):
     '''Deterministic unique ID generator.'''
     _uid = 0
 
@@ -17,14 +17,17 @@ class uid(object):
 class CircuitElement(object):
     '''Abstract base class for circuit elements.'''
 
-    def __init__(self, name, _uid=None, _parent=None):
+    def __init__(self, name, _parent=None, _uid=None, _guid=None):
         self.parent = _parent
         self.uid = _uid
+        self.guid = _guid
         self.name = name
         self.assigns = []
 
         if self.uid is None:
-            self.uid = uid.uid()
+            self.uid = UID.uid()
+        if self.guid is None:
+            self.guid = UID.uid()
         if self.parent is None:
             self.parent = Circuit.active_circuit
 
@@ -44,12 +47,13 @@ class CircuitElement(object):
     def to_object(self):
         return {
             'uid': self.uid,
+            'guid': self.guid,
             'name': self.name,
         }
 
     @classmethod
     def from_object(cls, obj, parent):
-        return cls(obj['name'], _uid=obj['uid'], _parent=parent)
+        return cls(obj['name'], _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
 
 
 class Net(CircuitElement):
@@ -63,25 +67,25 @@ class Port(CircuitElement):
 
 class Inst(CircuitElement):
     def __init__(self, name, component, value=None,
-                 _uid=None, _parent=None, _device=None):
-        super().__init__(name, _uid=_uid, _parent=_parent)
+                 _parent=None, _uid=None, _guid=None, _device=None):
+        super().__init__(name, _parent, _uid, _guid)
         self.component = Component.component_by_name(component)
         self.value = value
         self.device = _device
 
     def __setitem__(self, function, to):
         if isinstance(function, tuple):
-            group = uid.uid()
+            guid = UID.uid()
             for function, to in zip(function, to):
-                self.assign(function, to, group)
+                self.assign(function, to, guid=guid)
         else:
-            self.assign(function, to, uid.uid())
+            self.assign(function, to)
 
-    def assign(self, function, to, group):
+    def assign(self, function, to, guid=None):
         assert self.component.has_function(function)
         if not self.component.is_busfun(function):
-            group = uid.uid()
-        CircuitAssign(InstTerminal(self, function, group), to)
+            guid = None
+        InstAssign(self, function, to, _guid=guid)
 
     def __repr__(self):
         inst = 'inst %s of %s {\n' % (self.name, self.component.name)
@@ -93,6 +97,7 @@ class Inst(CircuitElement):
     def to_object(self):
         return {
             'uid': self.uid,
+            'guid': self.guid,
             'name': self.name,
             'component': self.component.name,
             'value': self.value,
@@ -105,12 +110,13 @@ class Inst(CircuitElement):
         device = Device.device_by_name(obj['device']) \
                  if not obj['device'] is None else None
         return cls(obj['name'], obj['component'], obj['value'],
-                   _uid=obj['uid'], _parent=parent, _device=device)
+                   _parent=parent, _uid=obj['uid'], _guid=obj['guid'],
+                   _device=device)
 
 
 class SubInst(CircuitElement):
-    def __init__(self, name, circuit, _uid=None, _parent=None):
-        super().__init__(name, _uid=_uid, _parent=_parent)
+    def __init__(self, name, circuit, _parent=None, _uid=None, _guid=None):
+        super().__init__(name, _parent, _uid, _guid)
         self.circuit = circuit
         circuit.parent = self.parent
 
@@ -124,7 +130,7 @@ class SubInst(CircuitElement):
     def assign(self, port_name, to):
         port = self.circuit.port_by_name(port_name)
         assert port is not None
-        CircuitAssign(SubInstTerminal(self, port), to)
+        SubInstAssign(self, port, to)
 
     def __repr__(self):
         subinst = 'subinst %s of %s {\n' % (self.name, self.circuit.name)
@@ -136,6 +142,7 @@ class SubInst(CircuitElement):
     def to_object(self):
         return {
             'uid': self.uid,
+            'guid': self.guid,
             'name': self.name,
             'circuit': self.circuit.to_object()
         }
@@ -144,113 +151,89 @@ class SubInst(CircuitElement):
     def from_object(cls, obj, parent):
         circuit = Circuit.from_object(obj['circuit'], parent)
         return cls(obj['name'], circuit,
-                   _uid=obj['uid'], _parent=parent)
+                   _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
 
 
 class CircuitAssign(CircuitElement):
-    def __init__(self, terminal, to, _uid=None, _parent=None):
-        super().__init__(None, _uid=_uid, _parent=_parent)
+    def __init__(self, to, _parent=None, _uid=None, _guid=None):
+        super().__init__(None, _parent, _uid, _guid)
         assert isinstance(to, Net) or isinstance(to, Port)
-        self.terminal = terminal
         self.to = to
+        self.to.assigns.append(self)
 
-        terminal.assign(self)
-        to.assigns.append(self)
 
-    def is_final(self):
-        return isinstance(self.terminal, InstTerminal) and isinstance(self.to, Net)
-
-    def is_next(self, assign):
-        if not isinstance(assign.terminal, SubInstTerminal):
-            return False
-        return self.to == assign.terminal.port
-
-    def next(self, assign):
-        self.to = assign.to
+class InstAssign(CircuitAssign):
+    def __init__(self, inst, function, to,
+                 _parent=None, _uid=None, _guid=None, _pin=None):
+        super().__init__(to, _parent, _uid, _guid)
+        self.inst = inst
+        self.function = function
+        self.pin = _pin
+        self.inst.assigns.append(self)
 
     def __str__(self):
-        return '%s (%s)' % (str(self.terminal.pin), str(self.terminal.function))
+        return '%s (%s)' % (str(self.pin), str(self.function))
 
     def __repr__(self):
-        return '%s = %s' % (str(self.terminal), str(self.to))
+        return '%s = %s' % (self.function, str(self.to))
+
+    def is_final(self):
+        return isinstance(self.to, Net)
 
     def to_object(self):
         return {
             'uid': self.uid,
-            'from': self.terminal.to_object(),
+            'guid': self.guid,
+            'inst': self.inst.uid,
+            'function': self.function,
+            'pin': self.pin.name
+            if isinstance(self.pin, Pin) else None,
             'to': self.to.uid,
         }
 
     @classmethod
     def from_object(cls, obj, parent):
-        if 'inst' in obj['from'].keys():
-            terminal = InstTerminal.from_object(obj['from'], parent)
-        else:
-            terminal = SubInstTerminal.from_object(obj['from'], parent)
+        inst = parent.inst_by_uid(obj['inst'])
         to = parent.net_by_uid(obj['to'])
         if to is None:
             to = parent.port_by_uid(obj['to'])
-        return cls(terminal, to, _uid=obj['uid'], _parent=parent)
-
-
-class InstTerminal(object):
-    def __init__(self, inst, function, group, pin=None):
-        self.inst = inst
-        self.function = function
-        self.group = group
-        self.pin = pin
-
-    def assign(self, assign):
-        self.inst.assigns.append(assign)
-
-    def __str__(self):
-        return self.function
-
-    def __repr__(self):
-        return '%s %s' % (repr(self.inst), self.function)
-
-    def to_object(self):
-        return {
-            'inst': self.inst.uid,
-            'function': self.function,
-            'group': self.group,
-            'pin': self.pin.name
-            if isinstance(self.pin, Pin) else None,
-        }
-
-    @classmethod
-    def from_object(cls, obj, parent):
-        inst = parent.inst_by_uid(obj['inst'])
         pin = inst.component.pin_by_name(obj['pin'])
-        return cls(inst, obj['function'], obj['group'], pin)
+        return cls(inst, obj['function'], to, _pin=pin,
+                   _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
 
 
-class SubInstTerminal(object):
-    def __init__(self, subinst, port):
+class SubInstAssign(CircuitAssign):
+    def __init__(self, subinst, port, to,
+                 _parent=None, _uid=None, _guid=None):
+        super().__init__(to, _parent, _uid, _guid)
         self.subinst = subinst
         self.port = port
-
-    def assign(self, assign):
-        self.subinst.assigns.append(assign)
+        self.subinst.assigns.append(self)
 
     def __str__(self):
-        return str(self.port)
+        return self.port.name
 
     def __repr__(self):
-        return '%s %s' % (repr(self.subinst), str(self.port))
+        return '%s = %s' % (self.port.name, str(self.to))
 
     def to_object(self):
         return {
+            'uid': self.uid,
+            'guid': self.guid,
             'subinst': self.subinst.uid,
             'port': self.port.uid,
+            'to': self.to.uid
         }
 
     @classmethod
     def from_object(cls, obj, parent):
         subinst = parent.subinst_by_uid(obj['subinst'])
         port = subinst.circuit.port_by_uid(obj['port'])
-        return cls(subinst, port)
-
+        to = parent.net_by_uid(obj['to'])
+        if to is None:
+            to = parent.port_by_uid(obj['to'])
+        return cls(subinst, port, to,
+                   _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
 
 
 ### Circuit ###
@@ -267,6 +250,7 @@ class Circuit(object):
         self.nets = []
         self.ports = []
         self.assigns = []
+        self.subinst_assigns = []
 
     def add_circuit_element(self, elem):
         if isinstance(elem, Inst):
@@ -277,8 +261,10 @@ class Circuit(object):
             self.add_net(elem)
         elif isinstance(elem, Port):
             self.add_port(elem)
-        elif isinstance(elem, CircuitAssign):
+        elif isinstance(elem, InstAssign):
             self.add_assign(elem)
+        elif isinstance(elem, SubInstAssign):
+            self.add_subinst_assign(elem)
         else:
             raise AssertionError('Not a circuit element')
 
@@ -300,6 +286,9 @@ class Circuit(object):
 
     def add_assign(self, assign):
         self.assigns.append(assign)
+
+    def add_subinst_assign(self, subinst_assign):
+        self.subinst_assigns.append(subinst_assign)
 
     def inst_by_name(self, name):
         for inst in self.insts:
@@ -375,6 +364,13 @@ class Circuit(object):
             for assign in subinst.circuit.assigns:
                 yield assign
 
+    def iter_subinst_assigns(self):
+        for assign in self.subinst_assigns:
+            yield assign
+        for subinst in self.iter_subinsts():
+            for assign in subinst.circuit.subinst_assigns:
+                yield assign
+
     def __str__(self):
         return self.name
 
@@ -401,6 +397,7 @@ class Circuit(object):
             'insts': [inst.to_object() for inst in self.insts],
             'subinsts': [subinst.to_object() for subinst in self.subinsts],
             'assigns': [assign.to_object() for assign in self.assigns],
+            'subinst_assigns': [assign.to_object() for assign in self.subinst_assigns],
         }
 
     @classmethod
@@ -415,7 +412,9 @@ class Circuit(object):
         for subinst in obj['subinsts']:
             SubInst.from_object(subinst, circuit)
         for assign in obj['assigns']:
-            CircuitAssign.from_object(assign, circuit)
+            InstAssign.from_object(assign, circuit)
+        for subinst_assign in obj['subinst_assigns']:
+            SubInstAssign.from_object(subinst_assign, circuit)
         return circuit
 
 
@@ -432,7 +431,7 @@ class Netlist(object):
             self.insts.append(elem)
         if isinstance(elem, Net):
             self.nets.append(elem)
-        if isinstance(elem, CircuitAssign):
+        if isinstance(elem, InstAssign):
             self.assigns.append(elem)
 
     def inst_by_uid(self, uid):
@@ -474,7 +473,7 @@ class Netlist(object):
         for inst in obj['insts']:
             Inst.from_object(inst, netlist)
         for assign in obj['assigns']:
-            CircuitAssign.from_object(assign, netlist)
+            InstAssign.from_object(assign, netlist)
         return netlist
 
 

@@ -141,9 +141,7 @@ class NetAttributes(object):
         '''Iterator over all coordinates belonging to the net.'''
 
         for assign in self.net.assigns:
-            inst = assign.terminal.inst
-            pin = assign.terminal.pin
-            for pad in inst.attributes.pads_by_pin(pin):
+            for pad in assign.inst.attributes.pads_by_pin(assign.pin):
                 yield pad
 
     def bounds(self):

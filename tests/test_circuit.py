@@ -69,33 +69,34 @@ class CircuitTests(unittest.TestCase):
         assert repr(r1) == 'inst R1 of R {\n  ~ = p1\n}\n'
 
     def test_assign_subinst_to_net(self):
-        n1 = Net('n1')
-        c1 = Circuit('SubCircuit')
-        c1_p1 = Port('p', _parent=c1)
-        s1 = SubInst('s1', c1)
-        s1['p'] = n1
-        assert len(s1.assigns) == 1
-        assert len(n1.assigns) == 1
-        assert repr(s1) == 'subinst s1 of SubCircuit {\n  p = n1\n}\n'
+        net = Net('n1')
+        circuit = Circuit('SubCircuit')
+        port_inner = Port('p', _parent=circuit)
+        subinst = SubInst('s1', circuit)
+        subinst['p'] = net
+        assert len(subinst.assigns) == 1
+        assert len(net.assigns) == 1
+        assert repr(subinst) == 'subinst s1 of SubCircuit {\n  p = n1\n}\n'
 
     def test_assign_subinst_to_port(self):
-        p1 = Port('p1')
-        c1 = Circuit('SubCircuit')
-        c1_p1 = Port('p', _parent=c1)
-        s1 = SubInst('s1', c1)
-        s1['p'] = p1
-        assert len(s1.assigns) == 1
-        assert len(p1.assigns) == 1
-        assert repr(s1) == 'subinst s1 of SubCircuit {\n  p = p1\n}\n'
+        port = Port('p1')
+        circuit = Circuit('SubCircuit')
+        port_inner = Port('p', _parent=circuit)
+        subinst = SubInst('s1', circuit)
+        subinst['p'] = port
+        assert len(subinst.assigns) == 1
+        assert len(port.assigns) == 1
+        assert repr(subinst) == 'subinst s1 of SubCircuit {\n  p = p1\n}\n'
 
     def test_port_to_object(self):
         p1 = Port('p1')
         obj = p1.to_object()
         assert isinstance(obj['uid'], int)
+        assert isinstance(obj['guid'], int)
         assert obj['name'] == 'p1'
 
     def test_port_from_object(self):
-        p1 = Port.from_object({'uid': 0, 'name': 'p1'}, self.circuit)
+        p1 = Port.from_object({'uid': 0, 'guid': 1, 'name': 'p1'}, self.circuit)
         assert p1.uid == 0
         assert p1.name == 'p1'
 
@@ -103,10 +104,11 @@ class CircuitTests(unittest.TestCase):
         n1 = Net('n1')
         obj = n1.to_object()
         assert isinstance(obj['uid'], int)
+        assert isinstance(obj['guid'], int)
         assert obj['name'] == 'n1'
 
     def test_net_from_object(self):
-        n1 = Port.from_object({'uid': 0, 'name': 'n1'}, self.circuit)
+        n1 = Port.from_object({'uid': 0, 'guid': 1, 'name': 'n1'}, self.circuit)
         assert n1.uid == 0
         assert n1.name == 'n1'
 
@@ -114,6 +116,7 @@ class CircuitTests(unittest.TestCase):
         r1 = Inst('R1', 'R')
         obj = r1.to_object()
         assert isinstance(obj['uid'], int)
+        assert isinstance(obj['guid'], int)
         assert obj['name'] == 'R1'
         assert obj['component'] == 'R'
         assert obj['device'] == None
@@ -122,6 +125,7 @@ class CircuitTests(unittest.TestCase):
     def test_inst_from_object(self):
         r1 = Inst.from_object({
             'uid': 0,
+            'guid': 1,
             'name': 'R1',
             'component': 'R',
             'device': None,
@@ -139,12 +143,14 @@ class CircuitTests(unittest.TestCase):
         s1 = SubInst('s1', c1)
         obj = s1.to_object()
         assert isinstance(obj['uid'], int)
+        assert isinstance(obj['guid'], int)
         assert obj['name'] == 's1'
         assert obj['circuit']['name'] == 'SubCircuit'
 
     def test_subinst_from_object(self):
         s1 = SubInst.from_object({
             'uid': 0,
+            'guid': 1,
             'name': 's1',
             'circuit': {
                 'name': 'SubCircuit',
@@ -153,6 +159,7 @@ class CircuitTests(unittest.TestCase):
                 'insts': [],
                 'subinsts': [],
                 'assigns': [],
+                'subinst_assigns': [],
             }
         }, self.circuit)
         assert s1.uid == 0
@@ -171,10 +178,11 @@ class CircuitTests(unittest.TestCase):
     def test_circuit_from_object(self):
         c1 = Circuit.from_object({
             'name': 'SubCircuit',
-            'ports': [{'uid': 0, 'name': 'p1'}],
-            'nets': [{'uid': 1, 'name': 'n1'}],
+            'ports': [{'uid': 0, 'guid': 2, 'name': 'p1'}],
+            'nets': [{'uid': 1, 'guid': 3, 'name': 'n1'}],
             'insts': [{
-                'uid': 2,
+                'uid': 4,
+                'guid': 5,
                 'name': 'R1',
                 'component': 'R',
                 'device': None,
@@ -182,6 +190,7 @@ class CircuitTests(unittest.TestCase):
             }],
             'subinsts': [],
             'assigns': [],
+            'subinst_assigns': [],
         }, None)
         assert c1.name == 'SubCircuit'
         assert len(c1.ports) == 1
@@ -191,44 +200,69 @@ class CircuitTests(unittest.TestCase):
         assert len(c1.insts) == 1
         assert isinstance(c1.insts[0], Inst)
 
-    def test_inst_terminal_to_object(self):
-        r1 = Inst('R1', 'R')
-        t1 = InstTerminal(r1, '~', 0)
-        obj = t1.to_object()
-        assert obj['inst'] == r1.uid
-        assert obj['function'] == '~'
+    def test_inst_assign_to_object(self):
+        inst = Inst('R1', 'R')
+        function = '~'
+        to = Net('n1')
+        assign = InstAssign(inst, function, to)
+        obj = assign.to_object()
+        assert isinstance(obj['uid'], int)
+        assert isinstance(obj['guid'], int)
+        assert obj['inst'] == inst.uid
+        assert obj['function'] == function
         assert obj['pin'] is None
-        assert obj['group'] == 0
+        assert obj['to'] == to.uid
 
-    def test_inst_terminal_from_object(self):
-        r1 = Inst('R1', 'R')
-        t1 = InstTerminal.from_object({
-            'inst': r1.uid,
-            'function': '~',
+    def test_inst_assign_from_object(self):
+        uid = UID.uid()
+        guid = UID.uid()
+        inst = Inst('R1', 'R')
+        function = '~'
+        to = Net('n1')
+        assign = InstAssign.from_object({
+            'uid': uid,
+            'guid': guid,
+            'inst': inst.uid,
+            'function': function,
             'pin': None,
-            'group': 0
+            'to': to.uid,
         }, self.circuit)
-        assert isinstance(t1.inst, Inst)
-        assert t1.function == '~'
-        assert t1.pin is None
-        assert t1.group == 0
+        assert assign.uid == uid
+        assert assign.guid == guid
+        assert assign.inst == inst
+        assert assign.function == function
+        assert assign.pin is None
+        assert assign.to == to
 
-    def test_subinst_terminal_to_object(self):
-        c1 = Circuit('sub')
-        c1_p1 = Port('p1', _parent=c1)
-        s1 = SubInst('s1', c1)
-        t1 = SubInstTerminal(s1, c1_p1)
-        obj = t1.to_object()
-        assert obj['subinst'] == s1.uid
-        assert obj['port'] == c1_p1.uid
+    def test_subinst_assign_to_object(self):
+        circuit = Circuit('sub')
+        port = Port('p1', _parent=circuit)
+        subinst = SubInst('s1', circuit)
+        to = Net('n1')
+        assign = SubInstAssign(subinst, port, to)
+        obj = assign.to_object()
+        assert isinstance(obj['uid'], int)
+        assert isinstance(obj['guid'], int)
+        assert obj['subinst'] == subinst.uid
+        assert obj['port'] == port.uid
+        assert obj['to'] == to.uid
 
-    def test_subinst_terminal_from_object(self):
-        c1 = Circuit('sub')
-        c1_p1 = Port('p1', _parent=c1)
-        s1 = SubInst('s1', c1)
-        t1 = SubInstTerminal.from_object({
-            'subinst': s1.uid,
-            'port': c1_p1.uid
+    def test_subinst_assign_from_object(self):
+        uid = UID.uid()
+        guid = UID.uid()
+        circuit = Circuit('sub')
+        port = Port('p1', _parent=circuit)
+        subinst = SubInst('s1', circuit)
+        to = Net('n1')
+        assign = SubInstAssign.from_object({
+            'uid': uid,
+            'guid': guid,
+            'subinst': subinst.uid,
+            'port': port.uid,
+            'to': to.uid,
         }, self.circuit)
-        assert isinstance(t1.subinst, SubInst)
-        assert isinstance(t1.port, Port)
+        assert assign.uid == uid
+        assert assign.guid == guid
+        assert assign.subinst == subinst
+        assert assign.port == port
+        assert assign.to == to
