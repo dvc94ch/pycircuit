@@ -1,17 +1,15 @@
+EXAMPLES=joule_thief small sallen_key
+
 build:
-	cd joule_thief && make build
-	cd small && make build
+	$(foreach example, $(EXAMPLES), cd $(CURDIR)/$(example) && make build;)
 
 view:
-	cd joule_thief && make view &
-	cd small && make view &
+	$(foreach example, $(EXAMPLES), sh -c 'cd $(CURDIR)/$(example) && make view &';)
 
 kicad:
-	cd joule_thief && make kicad
-	cd small && make kicad
+	$(foreach example, $(EXAMPLES), cd $(CURDIR)/$(example) && make kicad;)
 
 clean:
-	cd joule_thief && make clean
-	cd small && make clean
+	$(foreach example, $(EXAMPLES), cd $(CURDIR)/$(example) && make clean;)
 
 .PHONY: build view kicad clean
