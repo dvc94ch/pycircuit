@@ -1,11 +1,35 @@
 import hashlib
 from pycircuit.circuit import Netlist
+from pycircuit.compiler import Compiler
+from pycircuit.formats import *
 from pycircuit.pcb import Pcb
+
+
+def default_compile(filein, fileout):
+    compiler = Compiler()
+    compiler.compile(filein, fileout)
+
+
+def default_place(filein, fileout):
+    with open(fileout, 'w+') as f:
+        f.write('{}')
+
+
+def default_route(filein, fileout):
+    with open(fileout, 'w+') as f:
+        f.write('G 10 10')
+
+
+def default_post_process(pcb, kpcb):
+    return kpcb
 
 
 class Builder(object):
     def __init__(self, base_file_name, design, design_rules,
-                 compile_hook, place_hook, route_hook, post_process_hook):
+                 compile_hook=default_compile,
+                 place_hook=default_place,
+                 route_hook=default_route,
+                 post_process_hook=default_post_process):
         self.files = {
             'hash': base_file_name + '.hash',
             'net_in': base_file_name + '.net',
