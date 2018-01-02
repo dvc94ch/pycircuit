@@ -1,15 +1,9 @@
 import joule_thief
 from pycircuit.build import Builder
-from pycircuit.compiler import Compiler
 from pycircuit.library.design_rules import oshpark_4layer
 from placer import Placer
 from router import Router
 from pykicad.pcb import Zone
-
-
-def compile(filein, fileout):
-    compiler = Compiler()
-    compiler.compile(filein, fileout)
 
 
 def place(filein, fileout):
@@ -34,5 +28,5 @@ def post_process(pcb, kpcb):
 
 
 if __name__ == '__main__':
-    Builder('joule_thief', joule_thief.top, oshpark_4layer,
-            compile, place, route, post_process).build()
+    Builder(joule_thief.top(), oshpark_4layer,
+            place=place, route=route, post_process=post_process).build()

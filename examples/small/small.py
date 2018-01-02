@@ -38,7 +38,7 @@ Device('MCUQFN16', 'MCU', 'QFN16',
        Map('16', None),
        Map('17', 'GND'))
 
-Device('BAT0805', 'BAT', '0805',
+Device('V0805', 'V', '0805',
        Map('1', '+'),
        Map('2', '-'))
 
@@ -48,7 +48,7 @@ Device('OSC0805', 'XTAL', '0805',
 
 
 @circuit('LED')
-def led():
+def led(self):
     _in, gnd = ports('IN GND')
     n = Net('n1')
 
@@ -57,20 +57,20 @@ def led():
 
 
 @circuit('RGB')
-def rgb():
+def rgb(self):
     gnd = Port('GND')
     for port in ports('RED GREEN BLUE'):
         SubInst(port.name, led())['IN', 'GND'] = port, gnd
 
 
 @circuit('TOP')
-def top():
+def top(self):
     power = nets('VCC GND')
     clk = nets('XTAL_XI XTAL_XO')
     gpio = nets('RED GREEN BLUE')
     uart = bus('UART', 2)
 
-    Inst('BAT1', 'BAT')['+', '-'] = power
+    Inst('BAT1', 'V')['+', '-'] = power
     Inst('OSC1', 'XTAL')['~', '~'] = clk
 
     with SubInst('RBG1', rgb()) as rgb1:

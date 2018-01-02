@@ -1,15 +1,22 @@
 EXAMPLES=joule_thief small sallen_key
 
+define foreach-example
+	$(foreach example, $(EXAMPLES), cd $(CURDIR)/$(example) && $(1);)
+endef
+
 build:
-	$(foreach example, $(EXAMPLES), cd $(CURDIR)/$(example) && make build;)
+	cd $(CURDIR)/$(EXAMPLE) && python3 build.py
 
-view:
-	$(foreach example, $(EXAMPLES), sh -c 'cd $(CURDIR)/$(example) && make view &';)
+build-all:
+	$(call foreach-example, python3 build.py)
 
-kicad:
-	$(foreach example, $(EXAMPLES), cd $(CURDIR)/$(example) && make kicad;)
+view-all:
+	$(call foreach-example, sh -c 'node ../../viewer/app.js &')
 
-clean:
-	$(foreach example, $(EXAMPLES), cd $(CURDIR)/$(example) && make clean;)
+kicad-all:
+	$(call foreach-example, pcbnew *.kicad_pcb &)
 
-.PHONY: build view kicad clean
+clean-all:
+	$(call foreach-example, rm -rf build)
+
+.PHONY: build-all view-all kicad-all clean-all
