@@ -250,94 +250,145 @@ class SubInstAssign(CircuitAssign):
                    _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
 
 
-### Circuit ###
-class Circuit(object):
-    # Used in circuit decorator and CircuitElement.__init__
-    active_circuit = None
-
-    def __init__(self, name, _parent=None):
-        self.parent = _parent
+class Netlist(object):
+    def __init__(self, name):
         self.name = name
-
         self.insts = []
-        self.subinsts = []
         self.nets = []
-        self.ports = []
         self.assigns = []
-        self.subinst_assigns = []
 
     def add_circuit_element(self, elem):
         if isinstance(elem, Inst):
             self.add_inst(elem)
-        elif isinstance(elem, SubInst):
-            self.add_subinst(elem)
-        elif isinstance(elem, Net):
+        if isinstance(elem, Net):
             self.add_net(elem)
-        elif isinstance(elem, Port):
-            self.add_port(elem)
-        elif isinstance(elem, InstAssign):
+        if isinstance(elem, InstAssign):
             self.add_assign(elem)
-        elif isinstance(elem, SubInstAssign):
-            self.add_subinst_assign(elem)
-        else:
-            raise AssertionError('Not a circuit element')
+
+    def set_values(self, values):
+        for inst, value in values.items():
+            self.inst_by_name(inst).set_value(value)
 
     def add_inst(self, inst):
         assert self.inst_by_name(inst.name) is None
         self.insts.append(inst)
 
-    def add_subinst(self, subinst):
-        assert self.subinst_by_name(subinst.name) is None
-        self.subinsts.append(subinst)
-
     def add_net(self, net):
         assert self.net_by_name(net.name) is None
         self.nets.append(net)
 
-    def add_port(self, port):
-        assert self.port_by_name(port.name) is None
-        self.ports.append(port)
-
     def add_assign(self, assign):
         self.assigns.append(assign)
-
-    def add_subinst_assign(self, subinst_assign):
-        self.subinst_assigns.append(subinst_assign)
 
     def inst_by_name(self, name):
         for inst in self.insts:
             if inst.name == name:
                 return inst
 
-    def subinst_by_name(self, name):
-        for subinst in self.subinsts:
-            if subinst.name == name:
-                return subinst
-
     def net_by_name(self, name):
         for net in self.nets:
             if net.name == name:
                 return net
-
-    def port_by_name(self, name):
-        for port in self.ports:
-            if port.name == name:
-                return port
 
     def inst_by_uid(self, uid):
         for inst in self.insts:
             if inst.uid == uid:
                 return inst
 
-    def subinst_by_uid(self, uid):
-        for subinst in self.subinsts:
-            if subinst.uid == uid:
-                return subinst
-
     def net_by_uid(self, uid):
         for net in self.nets:
             if net.uid == uid:
                 return net
+
+    def iter_insts(self):
+        return iter(self.insts)
+
+    def iter_nets(self):
+        return iter(self.nets)
+
+    def iter_assigns(self):
+        return iter(self.assigns)
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        design = 'design {\n'
+        for net in self.nets:
+            design += '  ' + repr(net) + '\n'
+        for inst in self.insts:
+            for line in repr(inst).split('\n'):
+                design += '\n  ' + line
+        design += '\n}\n'
+        return design
+
+    def to_object(self):
+        return {
+            'name': self.name,
+            'nets': [net.to_object() for net in self.nets],
+            'insts': [inst.to_object() for inst in self.insts],
+            'assigns': [assign.to_object() for assign in self.assigns],
+        }
+
+    @classmethod
+    def from_object(cls, obj):
+        netlist = cls(obj['name'])
+        for net in obj['nets']:
+            Net.from_object(net, netlist)
+        for inst in obj['insts']:
+            Inst.from_object(inst, netlist)
+        for assign in obj['assigns']:
+            InstAssign.from_object(assign, netlist)
+        return netlist
+
+
+class Circuit(Netlist):
+    # Used in circuit decorator and CircuitElement.__init__
+    active_circuit = None
+
+    def __init__(self, name, _parent=None):
+        self.parent = _parent
+        super().__init__(name)
+
+        self.subinsts = []
+        self.ports = []
+        self.subinst_assigns = []
+
+    def add_circuit_element(self, elem):
+        if isinstance(elem, SubInst):
+            self.add_subinst(elem)
+        elif isinstance(elem, Port):
+            self.add_port(elem)
+        elif isinstance(elem, SubInstAssign):
+            self.add_subinst_assign(elem)
+        else:
+            super().add_circuit_element(elem)
+
+    def add_subinst(self, subinst):
+        assert self.subinst_by_name(subinst.name) is None
+        self.subinsts.append(subinst)
+
+    def add_port(self, port):
+        assert self.port_by_name(port.name) is None
+        self.ports.append(port)
+
+    def add_subinst_assign(self, subinst_assign):
+        self.subinst_assigns.append(subinst_assign)
+
+    def subinst_by_name(self, name):
+        for subinst in self.subinsts:
+            if subinst.name == name:
+                return subinst
+
+    def port_by_name(self, name):
+        for port in self.ports:
+            if port.name == name:
+                return port
+
+    def subinst_by_uid(self, uid):
+        for subinst in self.subinsts:
+            if subinst.uid == uid:
+                return subinst
 
     def port_by_uid(self, uid):
         for port in self.ports:
@@ -385,9 +436,6 @@ class Circuit(object):
             for assign in subinst.circuit.subinst_assigns:
                 yield assign
 
-    def __str__(self):
-        return self.name
-
     def __repr__(self):
         subdesign = 'subdesign {\n'
         for port in self.ports:
@@ -430,66 +478,6 @@ class Circuit(object):
         for subinst_assign in obj['subinst_assigns']:
             SubInstAssign.from_object(subinst_assign, circuit)
         return circuit
-
-
-### Netlist ###
-class Netlist(object):
-    def __init__(self, name, insts, nets, assigns):
-        self.name = name
-        self.insts = insts
-        self.nets = nets
-        self.assigns = assigns
-
-    def add_circuit_element(self, elem):
-        if isinstance(elem, Inst):
-            self.insts.append(elem)
-        if isinstance(elem, Net):
-            self.nets.append(elem)
-        if isinstance(elem, InstAssign):
-            self.assigns.append(elem)
-
-    def inst_by_uid(self, uid):
-        for inst in self.insts:
-            if inst.uid == uid:
-                return inst
-
-    def net_by_uid(self, uid):
-        for net in self.nets:
-            if net.uid == uid:
-                return net
-
-    def __str__(self):
-        return self.name
-
-    def __repr__(self):
-        design = 'design {\n'
-        for net in self.nets:
-            design += '  ' + repr(net) + '\n'
-        for inst in self.insts:
-            for line in repr(inst).split('\n'):
-                design += '\n  ' + line
-        design += '\n}\n'
-        return design
-
-    def to_object(self):
-        return {
-            'name': self.name,
-            'nets': [net.to_object() for net in self.nets],
-            'insts': [inst.to_object() for inst in self.insts],
-            'assigns': [assign.to_object() for assign in self.assigns],
-        }
-
-    @classmethod
-    def from_object(cls, obj):
-        netlist = cls(obj['name'], [], [], [])
-        for net in obj['nets']:
-            Net.from_object(net, netlist)
-        for inst in obj['insts']:
-            Inst.from_object(inst, netlist)
-        for assign in obj['assigns']:
-            InstAssign.from_object(assign, netlist)
-        return netlist
-
 
 
 #### Helpers to make defining circuits, nets and ports more ergonomic ###
