@@ -51,10 +51,14 @@ class Device(object):
 
         if pin is not None:
             pin = self.component.pin_by_name(pin)
-            assert pin is not None
+            if pin is None:
+                print('Warn: Device %s: Pin %s not in component %s'
+                      % (self.name, map.pin, self.component.name))
         if pad is not None:
             pad = self.package.pad_by_name(pad)
-            assert pad is not None
+            if pad is None:
+                print('Warn: Device %s: Pad %s not in package %s'
+                      % (self.name, map.pad, self.package.name))
 
         if pad is None:
             assert pin.optional

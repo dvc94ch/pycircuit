@@ -7,11 +7,11 @@ from pycircuit.pinassign import *
 class Compiler(object):
     def check_circuit(self, circuit):
         for net in circuit.iter_nets():
-            # At least two assignments to a net
-            assert len(net.assigns) > 1
+            if len(net.assigns) < 2:
+                print('Warn: Only one assignment to net %s' % net.name)
         for port in circuit.iter_ports():
-            # At least one internal connection from a port
-            assert len(port.assigns) > 0
+            if len(port.assigns) < 1:
+                print('Warn: Unused port %s' % port.name)
 
     def rename(self, iterator):
         names = {}
