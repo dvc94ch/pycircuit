@@ -514,3 +514,19 @@ def circuit(name):
             return active
         return wrapper
     return closure
+
+@circuit('Testbench')
+def testbench(self, two_port):
+    self.name = two_port.name + '_testbench'
+
+    power, input, (vout, gnd) = i_two_port(port=False)
+
+    Inst('VCC', 'V', 'dc 0')['+', '-'] = power[0], gnd
+    Inst('VSS', 'V', 'dc 0')['+', '-'] = gnd, power[1]
+
+    Inst('SIG', 'V', 'dc 0 ac 1')['+', '-'] = input
+    Inst('TP1', 'TP')['TP'] = vout
+
+    with SubInst('Two Port', two_port) as lp:
+        lp['vin', 'gnd', 'vout'] = *input, vout
+        lp['v+', 'v-'] = power
