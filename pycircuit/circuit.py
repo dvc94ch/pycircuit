@@ -484,14 +484,20 @@ class Circuit(Netlist):
 def nets(string):
     return [Net(name) for name in string.split(' ')]
 
-def bus(name, size):
-    return [Net('%s_%d' % (name, i)) for i in range(size)]
-
 def ports(string):
     return [Port(name) for name in string.split(' ')]
 
-def port_bus(name, size):
-    return [Port('%s_%d' % (name, i)) for i in range(size)]
+def bus(name, size, port=False):
+    cls = Port if port else Net
+    return [cls('%s_%d' % (name, i)) for i in range(size)]
+
+def i_two_port(port=True):
+    '''Two port interface.'''
+
+    gen = ports if port else nets
+    power = gen('v+ v-')
+    vin, vout, gnd = gen('vin vout gnd')
+    return power, (vin, gnd), (vout, gnd)
 
 def circuit(name):
     def closure(function):
