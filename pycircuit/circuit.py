@@ -69,8 +69,8 @@ class Inst(CircuitElement):
     def __init__(self, name, component, value=None,
                  _parent=None, _uid=None, _guid=None, _device=None):
         super().__init__(name, _parent, _uid, _guid)
-        self.component = Component.component_by_name(component)
-        self.value = value
+        self.set_component(component)
+        self.set_value(value)
         self.device = _device
 
     def __setitem__(self, function, to):
@@ -80,6 +80,12 @@ class Inst(CircuitElement):
                 self.assign(function, to, guid=guid)
         else:
             self.assign(function, to)
+
+    def set_component(self, component):
+        self.component = Component.component_by_name(component)
+
+    def set_value(self, value):
+        self.value = str(value) if value is not None else None
 
     def assign(self, function, to, guid=None):
         assert self.component.has_function(function)
