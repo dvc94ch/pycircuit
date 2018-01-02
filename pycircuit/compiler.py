@@ -30,19 +30,20 @@ class Compiler(object):
     def elaborate_circuit(self, circuit):
         assert len(circuit.ports) == 0
 
-        insts = list(self.rename(circuit.iter_insts()))
-        nets = list(self.rename(circuit.iter_nets()))
+        netlist = Netlist(circuit.name)
+        for inst in self.rename(circuit.iter_insts()):
+            netlist.add_inst(inst)
+        for net in self.rename(circuit.iter_nets()):
+            netlist.add_net(net)
 
-        assigns = []
         for assign in circuit.iter_assigns():
             while not assign.is_final():
                 for subinst_assign in circuit.iter_subinst_assigns():
                     if assign.to == subinst_assign.port:
                         assign.to = subinst_assign.to
                         break
-            assigns.append(assign)
-
-        return Netlist(circuit.name, insts=insts, nets=nets, assigns=assigns)
+            netlist.add_assign(assign)
+        return netlist
 
     def assign_pins(self, inst):
         # Convert CircuitAssign to Assign
