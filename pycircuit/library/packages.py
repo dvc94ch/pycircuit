@@ -3,6 +3,9 @@ from pycircuit.package import *
 
 
 ### Basic
+Package('PAD', IPCGrid(1, 1), PadArray(1),
+        package_size=(0, 0), pad_size=(1, 1))
+
 Package('0805', IPCGrid(4, 8), TwoPads(1.9),
         package_size=(1.4, 2.15), pad_size=(1.5, 1.3))
 

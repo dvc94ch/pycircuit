@@ -23,7 +23,7 @@ class Pad(object):
 
 
 class PadArray(object):
-    def __init__(self, length, pitch, radius, angle, prefix='', offset=0):
+    def __init__(self, length, pitch=0, radius=0, angle=0, prefix='', offset=0):
         self.length = length
         self.pitch = pitch
         self.angle = angle
