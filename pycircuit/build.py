@@ -1,4 +1,6 @@
+import os
 import hashlib
+import shutil
 from pycircuit.circuit import Netlist
 from pycircuit.compiler import Compiler
 from pycircuit.formats import *
@@ -24,33 +26,43 @@ def default_post_process(pcb, kpcb):
     return kpcb
 
 
+def string_to_filename(string):
+    return string.lower().replace(' ', '_')
+
+
 class Builder(object):
-    def __init__(self, base_file_name, design, design_rules,
-                 compile_hook=default_compile,
-                 place_hook=default_place,
-                 route_hook=default_route,
-                 post_process_hook=default_post_process):
+    def __init__(self, circuit, design_rules=None,
+                 builddir='build',
+                 compile=default_compile,
+                 place=default_place,
+                 route=default_route,
+                 post_process=default_post_process):
+        self.base_file_name = string_to_filename(circuit.name)
+        self.builddir = builddir
         self.files = {
-            'hash': base_file_name + '.hash',
-            'net_in': base_file_name + '.net',
-            'net_out': base_file_name + '.out.net',
-            'place_in': base_file_name + '.place',
-            'place_out': base_file_name + '.out.place',
-            'route_in': base_file_name + '.route',
-            'route_out': base_file_name + '.out.route',
+            'hash': self.base_file_name + '.hash',
+            'net_in': self.base_file_name + '.net',
+            'net_out': self.base_file_name + '.out.net',
+            'place_in': self.base_file_name + '.place',
+            'place_out': self.base_file_name + '.out.place',
+            'route_in': self.base_file_name + '.route',
+            'route_out': self.base_file_name + '.out.route',
+            'spice': self.base_file_name + '.sp',
             'net_svg': 'net.dot', # + '.svg'
             'pcb_svg': 'pcb.svg',
-            'kicad': base_file_name + '.kicad_pcb'
+            'kicad': self.base_file_name + '.kicad_pcb'
         }
+        for tag, filename in self.files.items():
+            self.files[tag] = os.path.join(self.builddir, filename)
 
         self.hashs = {}
-        self.design = design
-        self.design_rules = design_rules()
+        self.circuit = circuit
+        self.design_rules = design_rules
 
-        self.compile_hook = compile_hook
-        self.place_hook = place_hook
-        self.route_hook = route_hook
-        self.post_process_hook = post_process_hook
+        self.compile_hook = compile
+        self.place_hook = place
+        self.route_hook = route
+        self.post_process_hook = post_process
 
     def file_hash(self, path):
         try:
@@ -79,6 +91,8 @@ class Builder(object):
                         digest = None
                     self.hashs[path] = digest
         except FileNotFoundError:
+            if not os.path.exists(self.builddir):
+                os.makedirs(self.builddir)
             self.write_hashfile()
             self.read_hashfile()
 
@@ -90,7 +104,7 @@ class Builder(object):
 
     def new_pcb(self, netlist, placement=None, routes=None):
         netlist = Netlist.from_file(netlist)
-        pcb = Pcb(netlist, *self.design_rules)
+        pcb = Pcb(netlist, *self.design_rules())
         if not placement is None:
             pcb.from_place(placement)
         if not routes is None:
@@ -99,12 +113,14 @@ class Builder(object):
 
     def build(self):
         self.read_hashfile()
-        self.design().to_file(self.files['net_in'])
+        self.circuit.to_file(self.files['net_in'])
 
         self.compile()
-        self.place()
-        self.route()
-        self.post_process()
+
+        if self.design_rules is not None:
+            self.place()
+            self.route()
+            self.post_process()
 
     def compile(self):
         if not self.stored_hash('net_in') == self.current_hash('net_in') \
@@ -115,12 +131,20 @@ class Builder(object):
 
             Netlist.from_file(self.files['net_out']).to_graphviz(self.files['net_svg'])
 
-            self.new_pcb(self.files['net_out']) \
-                .to_place(self.files['place_in'])
+            if self.design_rules is not None:
+                self.new_pcb(self.files['net_out']) \
+                    .to_place(self.files['place_in'])
 
             self.write_hashfile()
         else:
             print('Skipping compile')
+
+    def get_netlist(self):
+        self.read_hashfile()
+        self.circuit.to_file(self.files['net_in'])
+
+        self.compile()
+        return Netlist.from_file(self.files['net_out'])
 
     def place(self):
         if not self.stored_hash('place_in') == self.current_hash('place_in') \
@@ -168,3 +192,6 @@ class Builder(object):
         kpcb.to_file(self.files['kicad'])
 
         self.write_hashfile()
+
+    def clean(self):
+        shutil.rmtree(self.builddir)
