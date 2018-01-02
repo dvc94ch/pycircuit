@@ -113,6 +113,12 @@ class Inst(CircuitElement):
             if isinstance(self.device, Device) else None,
         }
 
+    def assign_by_pin_name(self, pin_name):
+        pin = self.component.pin_by_name(pin_name)
+        for assign in self.assigns:
+            if assign.pin == pin:
+                return assign
+
     @classmethod
     def from_object(cls, obj, parent):
         device = Device.device_by_name(obj['device']) \
