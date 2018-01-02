@@ -95,6 +95,8 @@ class Inst(CircuitElement):
 
     def __repr__(self):
         inst = 'inst %s of %s {\n' % (self.name, self.component.name)
+        if self.value is not None:
+            inst += 'attr %s\n' % self.value
         for assign in self.assigns:
             inst += '  ' + repr(assign) + '\n'
         inst += '}\n'
