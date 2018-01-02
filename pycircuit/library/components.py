@@ -2,35 +2,38 @@ from pycircuit.component import *
 
 
 ### Passive Devices
+Component('Z', 'Impedance',
+          Pin('1', Fun('~'), optional=False),
+          Pin('2', Fun('~'), optional=False))
+
 Component('R', 'Resistor',
           Pin('1', Fun('~'), optional=False),
           Pin('2', Fun('~'), optional=False))
 
 Component('C', 'Capacitor',
-          Pin('1', Fun('~'), optional=False),
-          Pin('2', Fun('~'), optional=False))
-
-Component('Cp', 'Electrolytic capacitor',
-          Pin('+', optional=False),
-          Pin('-', optional=False))
+          Pin('1', BusFun('Ceramic', '~'),
+              BusFun('Electrolytic', '+'), optional=False),
+          Pin('2', BusFun('Ceramic', '~'),
+              BusFun('Electrolytic', '-'), optional=False))
 
 Component('L', 'Inductor',
           Pin('1', Fun('~'), optional=False),
           Pin('2', Fun('~'), optional=False))
 
-Component('BAT', 'Battery',
+Component('V', 'Voltage source',
           PwrOut('+', optional=False),
           PwrOut('-', optional=False))
+
+Component('S', 'Switch',
+          Pin('1', Fun('~'), optional=False),
+          Pin('2', Fun('~'), optional=False))
 
 Component('XTAL', 'Crystal',
           Pin('1', Fun('~'), optional=False),
           Pin('2', Fun('~'), optional=False))
 
-Component('BTN', 'Button',
-          Pin('1', Fun('~'), optional=False),
-          Pin('2', Fun('~'), optional=False))
-
-Component('TP', 'Test point', Pin('TP', optional=False))
+Component('TP', 'Test point',
+          Pin('TP', optional=False))
 
 Component('J2P', 'Jumper 2-pins',
           Pin('1', Fun('~'), optional=False),
@@ -44,20 +47,16 @@ Component('J3P', 'Jumper 3-pins',
 Component('ANT', 'Antenna', Pin('ANT', optional=False))
 
 Component('Transformer_1P_1S', 'Transformer with one primary and one secondary winding',
-          Pin('L1.1', Fun('L1'), optional=False),
-          Pin('L1.2', Fun('L1'), optional=False),
-          Pin('L2.1', Fun('L2'), optional=False),
-          Pin('L2.2', Fun('L2'), optional=False))
+          Pin('L1.1', optional=False),
+          Pin('L1.2', optional=False),
+          Pin('L2.1', optional=False),
+          Pin('L2.2', optional=False))
 
 
 ### Active Devices
 Component('D', 'Diode',
           Pin('A', optional=False),
           Pin('C', optional=False))
-
-Component('DD', 'Bidirectional diode',
-          Pin('1', Fun('~'), optional=False),
-          Pin('2', Fun('~'), optional=False))
 
 Component('Q', 'Bipolar transistor',
           Pin('B', optional=False),
