@@ -505,12 +505,12 @@ def circuit(name):
             # Save active circuit
             parent = Circuit.active_circuit
             # Create new circuit
-            circuit = Circuit(name)
+            active = Circuit(name)
             # Set active circuit
-            Circuit.active_circuit = circuit
-            function(*args, **kwargs)
+            Circuit.active_circuit = active
+            function(active, *args, **kwargs)
             # Reset active circuit
             Circuit.active_circuit = parent
-            return circuit
+            return active
         return wrapper
     return closure
