@@ -1,4 +1,6 @@
-from pycircuit.component import Component, Pin
+import re
+from enum import Enum
+from pycircuit.component import Component, Pin, PinType
 from pycircuit.device import Device
 
 
@@ -13,7 +15,6 @@ class UID(object):
         return _uid
 
 
-### Circuit elements ###
 class CircuitElement(object):
     '''Abstract base class for circuit elements.'''
 
@@ -56,22 +57,111 @@ class CircuitElement(object):
         return cls(obj['name'], _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
 
 
+class NetType(Enum):
+    SIGNAL, POWER, GND = range(3)
+
+    def __str__(self):
+        return self.name.lower()
+
+
 class Net(CircuitElement):
+    def __init__(self, name, _parent=None, _uid=None, _guid=None):
+        super().__init__(name, _parent, _uid, _guid)
+        self.type = NetType.SIGNAL
+
     def __repr__(self):
-        return 'net %s' % self.name
+        return '%s %s' % (str(self.type), self.name)
+
+
+class PortType(Enum):
+    POWER, GND, IN, OUT = range(4)
+
+    def __str__(self):
+        return self.name.lower()
+
+    def is_power(self):
+        return self is PortType.POWER
+
+    def is_gnd(self):
+        return self is PortType.GND
+
+    @classmethod
+    def from_string(cls, string):
+        if string == 'power':
+            return PortType.POWER
+        if string == 'gnd':
+            return PortType.GND
+        if string == 'in':
+            return PortType.IN
+        if string == 'out':
+            return PortType.OUT
 
 
 class Port(CircuitElement):
+    def __init__(self, name, type, _parent=None, _uid=None, _guid=None):
+        super().__init__(name, _parent, _uid, _guid)
+        self.type = type
+
+        self.internal = None
+        self.external = None
+
+    def external_net(self):
+        '''Returns the external net of a Port.'''
+
+        if self.external is None:
+            self.external = PortAssign(self, Net(self.name))
+        return self.external.net
+
+    def internal_net(self):
+        '''Returns the internal net of a Port.'''
+
+        if self.internal is None:
+            self.internal = PortAssign(self, Net(self.name))
+        return self.internal.net
+
     def __repr__(self):
-        return 'port %s' % self.name
+        return '%s %s' % (str(self.type), self.name)
+
+    def to_object(self):
+        obj = super().to_object()
+        obj['type'] = str(self.type)
+        if self.internal is not None:
+            obj['internal'] = self.internal.to_object()
+        if self.external is not None:
+            obj['external'] = self.external.to_object()
+        return obj
+
+    @classmethod
+    def from_object(cls, obj, parent):
+        port_type = PortType.from_string(obj['type'])
+        port = cls(obj['name'], port_type,
+                   _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
+        if 'internal' in obj:
+            port.internal = PortAssign.from_object(obj['internal'], parent, port)
+        if 'external' in obj:
+            port.external = PortAssign.from_object(obj['external'], parent, port)
+        return port
+
 
 class Inst(CircuitElement):
-    def __init__(self, name, component, value=None,
-                 _parent=None, _uid=None, _guid=None, _device=None):
-        super().__init__(name, _parent, _uid, _guid)
+    def __init__(self, component, value=None,
+                 _parent=None, _uid=None, _guid=None):
         self.set_component(component)
         self.set_value(value)
-        self.device = _device
+        self.device = None
+        super().__init__(self.component.name, _parent, _uid, _guid)
+
+    def set_component(self, component):
+        self.component = Component.component_by_name(component)
+
+    def set_value(self, value):
+        self.value = str(value) if value is not None else None
+
+    def assign_by_pin_name(self, pin_name):
+        pin = self.component.pin_by_name(pin_name)
+        for assign in self.assigns:
+            if assign.pin == pin:
+                return assign
 
     def __setitem__(self, function, to):
         if isinstance(function, tuple):
@@ -81,16 +171,12 @@ class Inst(CircuitElement):
         else:
             self.assign(function, to)
 
-    def set_component(self, component):
-        self.component = Component.component_by_name(component)
-
-    def set_value(self, value):
-        self.value = str(value) if value is not None else None
-
     def assign(self, function, to, guid=None):
         assert self.component.has_function(function)
         if not self.component.is_busfun(function):
             guid = None
+        if isinstance(to, Port):
+            to = to.internal_net()
         InstAssign(self, function, to, _guid=guid)
 
     def __repr__(self):
@@ -103,150 +189,101 @@ class Inst(CircuitElement):
         return inst
 
     def to_object(self):
-        return {
-            'uid': self.uid,
-            'guid': self.guid,
-            'name': self.name,
-            'component': self.component.name,
-            'value': self.value,
-            'device': self.device.name
-            if isinstance(self.device, Device) else None,
-        }
-
-    def assign_by_pin_name(self, pin_name):
-        pin = self.component.pin_by_name(pin_name)
-        for assign in self.assigns:
-            if assign.pin == pin:
-                return assign
+        obj = super().to_object()
+        obj['component'] = self.component.name
+        obj['value'] = self.value
+        obj['assigns'] = [assign.to_object() for assign in self.assigns]
+        if self.device is not None:
+            obj['device'] = self.device.name
+        return obj
 
     @classmethod
     def from_object(cls, obj, parent):
-        device = Device.device_by_name(obj['device']) \
-                 if not obj['device'] is None else None
-        return cls(obj['name'], obj['component'], obj['value'],
-                   _parent=parent, _uid=obj['uid'], _guid=obj['guid'],
-                   _device=device)
+        inst = cls(obj['component'], obj['value'],
+                   _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
+        inst.name = obj['name']
+        if 'device' in obj:
+            inst.device = Device.device_by_name(obj['device'])
+        for assign in obj['assigns']:
+            InstAssign.from_object(assign, parent, inst)
+        return inst
 
 
-class SubInst(CircuitElement):
-    def __init__(self, name, circuit, _parent=None, _uid=None, _guid=None):
-        super().__init__(name, _parent, _uid, _guid)
-        self.circuit = circuit
-        circuit.parent = self.parent
-
-    def __setitem__(self, port_name, to):
-        if isinstance(port_name, tuple):
-            for port_name, to in zip(port_name, to):
-                self[port_name] = to
-        else:
-            self.assign(port_name, to)
-
-    def assign(self, port_name, to):
-        port = self.circuit.port_by_name(port_name)
-        assert port is not None
-        SubInstAssign(self, port, to)
-
-    def __repr__(self):
-        subinst = 'subinst %s of %s {\n' % (self.name, self.circuit.name)
-        for assign in self.assigns:
-            subinst += '  ' + repr(assign) + '\n'
-        subinst += '}\n'
-        return subinst
+class Assign(CircuitElement):
+    def __init__(self, net, _parent=None, _uid=None, _guid=None):
+        super().__init__(None, _parent, _uid, _guid)
+        assert isinstance(net, Net)
+        self.net = net
+        self.net.assigns.append(self)
+        self.erc_type = None
 
     def to_object(self):
-        return {
-            'uid': self.uid,
-            'guid': self.guid,
-            'name': self.name,
-            'circuit': self.circuit.to_object()
-        }
-
-    @classmethod
-    def from_object(cls, obj, parent):
-        circuit = Circuit.from_object(obj['circuit'], parent)
-        return cls(obj['name'], circuit,
-                   _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
+        obj = super().to_object()
+        obj['net'] = self.net.uid
+        obj['erc_type'] = str(self.erc_type)
+        return obj
 
 
-class CircuitAssign(CircuitElement):
-    def __init__(self, to, _parent=None, _uid=None, _guid=None):
-        super().__init__(None, _parent, _uid, _guid)
-        assert isinstance(to, Net) or isinstance(to, Port)
-        self.to = to
-        self.to.assigns.append(self)
-
-
-class InstAssign(CircuitAssign):
-    def __init__(self, inst, function, to,
-                 _parent=None, _uid=None, _guid=None, _pin=None):
-        super().__init__(to, _parent, _uid, _guid)
+class InstAssign(Assign):
+    def __init__(self, inst, function, net,
+                 _parent=None, _uid=None, _guid=None):
+        assert isinstance(inst, Inst)
+        super().__init__(net, _parent, _uid, _guid)
         self.inst = inst
-        self.function = function
-        self.pin = _pin
         self.inst.assigns.append(self)
+        self.function = function
+        self.pin = None
+        self.type = None
 
     def __str__(self):
-        return '%s (%s)' % (str(self.pin), str(self.function))
+        return self.inst.name
 
     def __repr__(self):
-        return '%s = %s' % (self.function, str(self.to))
-
-    def is_final(self):
-        return isinstance(self.to, Net)
+        return '%s = %s' % (self.function, str(self.net))
 
     def to_object(self):
-        return {
-            'uid': self.uid,
-            'guid': self.guid,
-            'inst': self.inst.uid,
-            'function': self.function,
-            'pin': self.pin.name
-            if isinstance(self.pin, Pin) else None,
-            'to': self.to.uid,
-        }
+        obj = super().to_object()
+        obj['function'] = self.function
+        if self.pin is not None:
+            obj['pin'] = self.pin.name
+        if self.type is not None:
+            obj['type'] = str(self.type)
+        return obj
 
     @classmethod
-    def from_object(cls, obj, parent):
-        inst = parent.inst_by_uid(obj['inst'])
-        to = parent.net_by_uid(obj['to'])
-        if to is None:
-            to = parent.port_by_uid(obj['to'])
-        pin = inst.component.pin_by_name(obj['pin'])
-        return cls(inst, obj['function'], to, _pin=pin,
-                   _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
+    def from_object(cls, obj, parent, inst):
+        net = inst.parent.net_by_uid(obj['net'])
+        inst_assign = cls(inst, obj['function'], net,
+                          _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
+        if 'pin' in obj:
+            inst_assign.pin = inst.component.pin_by_name(obj['pin'])
+        if 'type' in obj:
+            inst_assign.type = PinType.from_string(obj['type'])
+        return inst_assign
 
 
-class SubInstAssign(CircuitAssign):
-    def __init__(self, subinst, port, to,
+class PortAssign(Assign):
+    def __init__(self, port, net,
                  _parent=None, _uid=None, _guid=None):
-        super().__init__(to, _parent, _uid, _guid)
-        self.subinst = subinst
+        assert isinstance(port, Port)
+        super().__init__(net, _parent, _uid, _guid)
         self.port = port
-        self.subinst.assigns.append(self)
+        self.port.assigns.append(self)
+        self.type = self.port.type
 
     def __str__(self):
         return self.port.name
 
     def __repr__(self):
-        return '%s = %s' % (self.port.name, str(self.to))
+        return '%s = %s' % (self.port.name, str(self.net))
 
     def to_object(self):
-        return {
-            'uid': self.uid,
-            'guid': self.guid,
-            'subinst': self.subinst.uid,
-            'port': self.port.uid,
-            'to': self.to.uid
-        }
+        return super().to_object()
 
     @classmethod
-    def from_object(cls, obj, parent):
-        subinst = parent.subinst_by_uid(obj['subinst'])
-        port = subinst.circuit.port_by_uid(obj['port'])
-        to = parent.net_by_uid(obj['to'])
-        if to is None:
-            to = parent.port_by_uid(obj['to'])
-        return cls(subinst, port, to,
+    def from_object(cls, obj, parent, port):
+        net = parent.net_by_uid(obj['net'])
+        return cls(port, net,
                    _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
 
 
@@ -270,33 +307,24 @@ class Netlist(object):
             self.inst_by_name(inst).set_value(value)
 
     def add_inst(self, inst):
-        assert self.inst_by_name(inst.name) is None
+        inst.parent = self
         self.insts.append(inst)
 
     def add_net(self, net):
-        assert self.net_by_name(net.name) is None
+        net.parent = self
         self.nets.append(net)
 
     def add_assign(self, assign):
+        assign.parent = self
         self.assigns.append(assign)
 
-    def inst_by_name(self, name):
-        for inst in self.insts:
-            if inst.name == name:
-                return inst
-
-    def net_by_name(self, name):
-        for net in self.nets:
-            if net.name == name:
-                return net
-
     def inst_by_uid(self, uid):
-        for inst in self.insts:
+        for inst in self.iter_insts():
             if inst.uid == uid:
                 return inst
 
     def net_by_uid(self, uid):
-        for net in self.nets:
+        for net in self.iter_nets():
             if net.uid == uid:
                 return net
 
@@ -327,7 +355,6 @@ class Netlist(object):
             'name': self.name,
             'nets': [net.to_object() for net in self.nets],
             'insts': [inst.to_object() for inst in self.insts],
-            'assigns': [assign.to_object() for assign in self.assigns],
         }
 
     @classmethod
@@ -337,8 +364,6 @@ class Netlist(object):
             Net.from_object(net, netlist)
         for inst in obj['insts']:
             Inst.from_object(inst, netlist)
-        for assign in obj['assigns']:
-            InstAssign.from_object(assign, netlist)
         return netlist
 
 
@@ -352,38 +377,29 @@ class Circuit(Netlist):
 
         self.subinsts = []
         self.ports = []
-        self.subinst_assigns = []
+        self.port_assigns = []
 
     def add_circuit_element(self, elem):
         if isinstance(elem, SubInst):
             self.add_subinst(elem)
         elif isinstance(elem, Port):
             self.add_port(elem)
-        elif isinstance(elem, SubInstAssign):
-            self.add_subinst_assign(elem)
+        elif isinstance(elem, PortAssign):
+            self.add_port_assign(elem)
         else:
             super().add_circuit_element(elem)
 
     def add_subinst(self, subinst):
-        assert self.subinst_by_name(subinst.name) is None
+        subinst.parent = self
         self.subinsts.append(subinst)
 
     def add_port(self, port):
-        assert self.port_by_name(port.name) is None
+        port.parent = self
         self.ports.append(port)
 
-    def add_subinst_assign(self, subinst_assign):
-        self.subinst_assigns.append(subinst_assign)
-
-    def subinst_by_name(self, name):
-        for subinst in self.subinsts:
-            if subinst.name == name:
-                return subinst
-
-    def port_by_name(self, name):
-        for port in self.ports:
-            if port.name == name:
-                return port
+    def add_port_assign(self, port_assign):
+        port_assign.parent = self
+        self.port_assigns.append(port_assign)
 
     def subinst_by_uid(self, uid):
         for subinst in self.subinsts:
@@ -391,9 +407,26 @@ class Circuit(Netlist):
                 return subinst
 
     def port_by_uid(self, uid):
-        for port in self.ports:
+        for port in self.iter_ports():
             if port.uid == uid:
                 return port
+
+    def port_by_name(self, name):
+        for port in self.ports:
+            if port.name == name:
+                return port
+
+    def ports_by_guid(self, guid):
+        for port in self.ports:
+            if port.guid == guid:
+                yield port
+
+    def port_guids(self):
+        guids = set()
+        for port in self.ports:
+            if not port.guid in guids:
+                guids.add(port.guid)
+                yield port.guid
 
     def iter_insts(self):
         for inst in self.insts:
@@ -429,11 +462,11 @@ class Circuit(Netlist):
             for assign in subinst.circuit.assigns:
                 yield assign
 
-    def iter_subinst_assigns(self):
-        for assign in self.subinst_assigns:
+    def iter_port_assigns(self):
+        for assign in self.port_assigns:
             yield assign
         for subinst in self.iter_subinsts():
-            for assign in subinst.circuit.subinst_assigns:
+            for assign in subinst.circuit.port_assigns:
                 yield assign
 
     def __repr__(self):
@@ -454,79 +487,219 @@ class Circuit(Netlist):
     def to_object(self):
         return {
             'name': self.name,
-            'ports': [port.to_object() for port in self.ports],
-            'nets': [net.to_object() for net in self.nets],
-            'insts': [inst.to_object() for inst in self.insts],
-            'subinsts': [subinst.to_object() for subinst in self.subinsts],
-            'assigns': [assign.to_object() for assign in self.assigns],
-            'subinst_assigns': [assign.to_object() for assign in self.subinst_assigns],
+            'nets': [net.to_object() for net in self.iter_nets()],
+            'insts': [inst.to_object() for inst in self.iter_insts()],
+            'ports': [port.to_object() for port in self.iter_ports()]
         }
 
     @classmethod
-    def from_object(cls, obj, parent):
+    def from_object(cls, obj, parent=None):
         circuit = cls(obj['name'], _parent=parent)
-        for port in obj['ports']:
-            Port.from_object(port, circuit)
+
         for net in obj['nets']:
             Net.from_object(net, circuit)
         for inst in obj['insts']:
             Inst.from_object(inst, circuit)
-        for subinst in obj['subinsts']:
-            SubInst.from_object(subinst, circuit)
-        for assign in obj['assigns']:
-            InstAssign.from_object(assign, circuit)
-        for subinst_assign in obj['subinst_assigns']:
-            SubInstAssign.from_object(subinst_assign, circuit)
+        for port in obj['ports']:
+            Port.from_object(port, circuit)
+
         return circuit
 
 
+class ERCType(Enum):
+    INPUT, OUTPUT, UNKNOWN = range(3)
+
+    def __str__(self):
+        return self.name.lower()
+
+    @staticmethod
+    def same(erc_type1, erc_type2):
+        if erc_type1 == ERCType.INPUT:
+            if erc_type2 == ERCType.OUTPUT:
+                raise AssertionError()
+            return ERCType.INPUT, ERCType.INPUT
+        elif erc_type1 == ERCType.OUTPUT:
+            if erc_type2 == ERCType.INPUT:
+                raise AssertionError()
+            return ERCType.OUTPUT, ERCType.OUTPUT
+        else:
+            return erc_type2, erc_type2
+
+    @staticmethod
+    def diff(erc_type1, erc_type2):
+        if erc_type1 == ERCType.INPUT:
+            if erc_type2 == ERCType.INPUT:
+                raise AssertionError()
+            return ERCType.INPUT, ERCType.OUTPUT
+        elif erc_type1 == ERCType.OUTPUT:
+            if erc_type2 == ERCType.OUTPUT:
+                raise AssertionError()
+            return ERCType.OUTPUT, ERCType.INPUT
+        else:
+            if erc_type2 == ERCType.INPUT:
+                return ERCType.OUTPUT, ERCType.INPUT
+            elif erc_type2 == ERCType.OUTPUT:
+                return ERCType.INPUT, ERCType.OUTPUT
+            else:
+                return ERCType.UNKNOWN, ERCType.UNKNOWN
+
+    @staticmethod
+    def from_type(ty):
+        if isinstance(ty, PortType):
+            if ty == PortType.OUT or ty == PortType.GND:
+                return ERCType.OUTPUT
+            else:
+                return ERCType.INPUT
+        elif isinstance(ty, PinType):
+            if ty == PinType.PASSIVE or ty == PinType.INOUT:
+                return ERCType.UNKNOWN
+            elif ty == PinType.OUT or ty == PinType.GND:
+                return ERCType.OUTPUT
+            else:
+                return ERCType.INPUT
+        else:
+            raise TypeError(type(ty))
+
+class SubInst(CircuitElement):
+    def __init__(self, circuit, _parent=None, _uid=None, _guid=None):
+        super().__init__(None, _parent, _uid, _guid)
+        self.name = circuit.name
+        self.circuit = circuit
+        circuit.parent = self.parent
+
+    def __setitem__(self, port_name, to):
+        if isinstance(port_name, tuple):
+            for port_name, to in zip(port_name, to):
+                self[port_name] = to
+        else:
+            self.assign(port_name, to)
+
+    def assign(self, port_name, net):
+        port = self.circuit.port_by_name(port_name)
+        assert port is not None
+
+        if isinstance(net, Port):
+            net = net.internal_net()
+
+        assign = PortAssign(port, net)
+        port.external = assign
+
+        self.assigns.append(assign)
+
+    def __repr__(self):
+        subinst = 'subinst %s of %s {\n' % (self.name, self.circuit.name)
+        for assign in self.assigns:
+             subinst += '  ' + repr(assign) + '\n'
+        subinst += '}\n'
+        return subinst
+
+
 #### Helpers to make defining circuits, nets and ports more ergonomic ###
+def parse_busses(string, cons, **kwargs):
+    if len(string) < 1:
+        return None
+
+    regex = re.compile('([^\[\]]*)(\[([1-9][0-9]*)\])?$')
+    busses = []
+    for bus in string.split(' '):
+        guid = UID.uid()
+        m = regex.match(bus)
+        if m is None:
+            raise Exception('Invalid bus name %s' % bus)
+        name, _, size = m.groups()
+        if size is None:
+            busses.append(cons(name, _guid=guid, **kwargs))
+        else:
+            bus = []
+            for i in range(int(size)):
+                bus.append(cons('%s[%d]' % (name, i), _guid=guid, **kwargs))
+            busses.append(bus)
+
+    if len(busses) == 1:
+        return busses[0]
+    return busses
+
+def parse_power_net(string):
+    lstr = string.lower().replace('v', '.')
+    if lstr == 'gnd':
+        return 0
+    if lstr.startswith('.'):
+        lstr = lstr[1:]
+    if lstr.endswith('.'):
+        lstr = lstr[0:-1]
+    return float(lstr)
+
 def nets(string):
-    return [Net(name) for name in string.split(' ')]
+    return parse_busses(string, Net)
 
-def ports(string):
-    return [Port(name) for name in string.split(' ')]
-
-def bus(name, size, port=False):
-    cls = Port if port else Net
-    return [cls('%s_%d' % (name, i)) for i in range(size)]
-
-def i_two_port(port=True):
-    '''Two port interface.'''
-
-    gen = ports if port else nets
-    power = gen('v+ v-')
-    vin, vout, gnd = gen('vin vout gnd')
-    return power, (vin, gnd), (vout, gnd)
-
-def circuit(name):
+def circuit(name, gnd=None, power=None, inputs=None, outputs=None):
     def closure(function):
-        def wrapper(*args, **kwargs):
+        def wrapper(**kwargs):
             # Save active circuit
             parent = Circuit.active_circuit
             # Create new circuit
             active = Circuit(name)
             # Set active circuit
             Circuit.active_circuit = active
-            function(active, *args, **kwargs)
+
+            # Add ports to circuit
+            if gnd is not None:
+                parse_busses(gnd, Port, type=PortType.GND)
+            if power is not None:
+                parse_busses(power, Port, type=PortType.POWER)
+            if inputs is not None:
+                parse_busses(inputs, Port, type=PortType.IN)
+            if outputs is not None:
+                parse_busses(outputs, Port, type=PortType.OUT)
+
+            # Check that port names are unique
+            port_names = set()
+            for port in active.ports:
+                if port.name in port_names:
+                    raise Exception('Port names must be unique.')
+                port_names.add(port.name)
+
+            function(active, *active.ports, **kwargs)
+
+            # Check circuit
+            for port in active.ports:
+                if len(port.assigns) < 1:
+                    print('Warn: Unused port %s' % port.name)
+
+            for subinst in active.subinsts:
+                for port in subinst.circuit.ports:
+                    if len(port.assigns) < 2:
+                        print('Warn: Not unconnected port %s in subinst %s'
+                              % (subinst.name, port.name))
+
+            for net in active.nets:
+                if len(net.assigns) < 2:
+                    print('Warn: Only one assignment to net %s' % net.name)
+
             # Reset active circuit
             Circuit.active_circuit = parent
             return active
         return wrapper
     return closure
 
-@circuit('Testbench')
-def testbench(self, two_port):
-    self.name = two_port.name + '_testbench'
 
-    power, input, (vout, gnd) = i_two_port(port=False)
+'''
+def testbench(circuit):
+    tb = Circuit(circuit.name + '_testbench')
 
-    Inst('VCC', 'V', 'dc 0')['+', '-'] = power[0], gnd
-    Inst('VSS', 'V', 'dc 0')['+', '-'] = gnd, power[1]
+    dut = SubInst(circuit, _parent=tb)
+    nets = []
 
-    Inst('SIG', 'V', 'dc 0 ac 1')['+', '-'] = input
-    Inst('TP1', 'TP')['TP'] = vout
+    for port in circuit.ports:
+        nets.append(Net(port.name, _parent=tb))
+        dut[port.name] = nets[-1]
 
-    with SubInst('Two Port', two_port) as lp:
-        lp['vin', 'gnd', 'vout'] = *input, vout
-        lp['v+', 'v-'] = power
+        if port.type == Port.POWER:
+            v = parse_power_net(port.name)
+            Inst('V', 'dc %d' % v, _parent=tb)['+', '-'] = nets[-1], circuit.gnd
+        elif port.type == Port.INPUT:
+            Inst('V', 'dc 0 ac 1', _parent=tb)['+', '-'] = nets[-1], circuit.gnd
+        elif port.type == Port.OUTPUT:
+            Inst('TP', _parent=tb)['TP'] = nets[-1]
+    return tb
+'''

@@ -27,4 +27,5 @@ def polygon_to_lines(coords):
         yield coords[i], coords[i + 1]
 
 
-__all__ = ['netlist', 'graphviz', 'spice', 'place', 'route', 'svg', 'kicad']
+__all__ = ['netlist', 'yosys', 'graphviz', 'spice',
+           'place', 'route', 'svg', 'kicad']

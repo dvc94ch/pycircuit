@@ -10,8 +10,8 @@ class DeviceTests(unittest.TestCase):
 
     def test_works(self):
         Device('R0805', 'R', '0805',
-               Map('1', '1'),
-               Map('2', '2'))
+               Map('1', 'A'),
+               Map('2', 'B'))
 
     def test_none_none_map(self):
         with pytest.raises(Exception):
@@ -20,26 +20,26 @@ class DeviceTests(unittest.TestCase):
     def test_component_doesnt_exist(self):
         with pytest.raises(Exception):
             Device('R0805', 'R1', '0805',
-                   Map('1', '1'),
-                   Map('2', '2'))
+                   Map('1', 'A'),
+                   Map('2', 'B'))
 
     def test_package_doesnt_exist(self):
         with pytest.raises(Exception):
             Device('R0805', 'R', 'R0805',
-                   Map('1', '1'),
-                   Map('2', '2'))
+                   Map('1', 'A'),
+                   Map('2', 'B'))
 
     def test_pin_doesnt_exist(self):
         with pytest.raises(Exception):
             Device('R0805', 'R', '0805',
-                   Map('1', '1'),
-                   Map('2', '3'))
+                   Map('1', 'A'),
+                   Map('2', 'C'))
 
     def test_pad_doesnt_exist(self):
         with pytest.raises(Exception):
             Device('R0805', 'R', '0805',
-                   Map('1', '1'),
-                   Map('3', '2'))
+                   Map('1', 'A'),
+                   Map('3', 'B'))
 
     def test_works2(self):
         Device('SOT23BCE', 'Q', 'SOT23',
@@ -73,12 +73,12 @@ class DeviceTests(unittest.TestCase):
 
     def test_works3(self):
         Device('RSOT23', 'R', 'SOT23',
-               Map('1', '1'),
-               Map('2', '2'),
+               Map('1', 'A'),
+               Map('2', 'B'),
                Map('3', None))
 
     def test_pad_unmapped(self):
         with pytest.raises(Exception):
             Device('RSOT23', 'R', 'SOT23',
-                   Map('1', '1'),
-                   Map('2', '2'))
+                   Map('1', 'A'),
+                   Map('2', 'B'))

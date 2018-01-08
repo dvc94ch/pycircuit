@@ -2,7 +2,7 @@ import uuid
 from z3 import And, Or, Implies, Int, Distinct, Solver, sat
 
 
-class Assign(object):
+class Z3Assign(object):
     def __init__(self, function, meta):
         self.function = function
         self.meta = meta
@@ -44,7 +44,7 @@ class Assign(object):
         return self.function
 
 
-class BusAssign(object):
+class Z3BusAssign(object):
     def __init__(self, *assigns):
         _uuid = uuid.uuid4()
         self.z3_bus = Int(str(_uuid) + '_bus')
@@ -76,8 +76,8 @@ class AssignmentProblem(object):
         self.constraints = []
 
         for bus_assign in assigns:
-            if isinstance(bus_assign, Assign):
-                bus_assign = BusAssign(bus_assign)
+            if isinstance(bus_assign, Z3Assign):
+                bus_assign = Z3BusAssign(bus_assign)
 
             self.constraints += bus_assign.constraints
             self.bus_assigns.append(bus_assign)

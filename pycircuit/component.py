@@ -1,5 +1,36 @@
+from enum import Enum
+
+
+class PinType(Enum):
+    POWER, GND, IN, OUT, INOUT, PASSIVE = range(6)
+
+    def __str__(self):
+        return self.name.lower()
+
+    def is_power(self):
+        return self is PinType.POWER
+
+    def is_gnd(self):
+        return self is PinType.GND
+
+    @classmethod
+    def from_string(cls, string):
+        if string == 'power':
+            return PinType.POWER
+        if string == 'gnd':
+            return PinType.GND
+        if string == 'in':
+            return PinType.IN
+        if string == 'out':
+            return PinType.OUT
+        if string == 'inout':
+            return PinType.INOUT
+        if string == 'passive':
+            return PinType.PASSIVE
+
+
 class Fun(object):
-    def __init__(self, function):
+    def __init__(self, function, **kwargs):
         self.id = None
         self.bus_id = None
         self.pin = None
@@ -11,6 +42,7 @@ class Fun(object):
 
     def __repr__(self):
         return 'fn %s' % self.function
+
 
 class BusFun(Fun):
     def __init__(self, bus, function):
@@ -24,18 +56,14 @@ class BusFun(Fun):
     def __repr__(self):
         return 'busfn %s %s' % (self.bus, self.function)
 
+
 class Pin(object):
     def __init__(self, name, *funs, **kwargs):
         self.id = None
         self.device = None
         self.name = name
         self.funs = []
-
-        if len(funs) == 0:
-            self.add_fun(Fun(self.name))
-        else:
-            for fun in funs:
-                self.add_fun(fun)
+        self.type = PinType.PASSIVE
 
         self.optional = True
         if 'optional' in kwargs:
@@ -44,6 +72,16 @@ class Pin(object):
         self.description = ''
         if 'description' in kwargs:
             self.description = kwargs['description']
+
+        if 'type' in kwargs:
+            self.type = kwargs['type']
+
+        if len(funs) == 0:
+            self.add_fun(Fun(self.name))
+        else:
+            for fun in funs:
+                self.add_fun(fun)
+
 
     def has_function(self, function):
         for fun in self.funs:
@@ -56,13 +94,12 @@ class Pin(object):
         self.funs.append(fun)
 
     def __str__(self):
-        return self.name
+        return '%s %s' % (str(self.type), self.name)
 
     def __repr__(self):
         '''Return a string "Pin (Functions)".'''
 
-        text = '%s(%s)' % (self.__class__.__name__, self.name)
-        return '%-15s (%s)' % (text, ' | '.join([str(fun) for fun in self.funs]))
+        return '%-15s (%s)' % (str(self), ' | '.join([str(fun) for fun in self.funs]))
 
 
 class Component(object):
@@ -165,37 +202,26 @@ class Component(object):
 
 
 class Io(Pin):
-    '''Single function bidirectional signal pin.'''
-
     def __init__(self, name, *funs, **kwargs):
-        super().__init__(name, *funs, **kwargs)
-
-class Pwr(Io):
-    '''Single function bidirectional power pin.'''
-
-    def __init__(self, name, *funs, **kwargs):
-        super().__init__(name, *funs, **kwargs)
+        kwargs['type'] = PinType.INOUT
+        super().__init__(name, Fun('GPIO'), *funs, **kwargs)
 
 class In(Pin):
-    '''Single function input signal pin.'''
-
     def __init__(self, name, *funs, **kwargs):
-        super().__init__(name, *funs, **kwargs)
-
-class PwrIn(In):
-    '''Single function input power pin.'''
-
-    def __init__(self, name, *funs, **kwargs):
+        kwargs['type'] = PinType.IN
         super().__init__(name, *funs, **kwargs)
 
 class Out(Pin):
-    '''Single function output signal pin.'''
-
     def __init__(self, name, *funs, **kwargs):
+        kwargs['type'] = PinType.OUT
         super().__init__(name, *funs, **kwargs)
 
-class PwrOut(Out):
-    '''Single function output power pin.'''
+class Pwr(Pin):
+    def __init__(self, name, **kwargs):
+        kwargs['type'] = PinType.POWER
+        super().__init__(name, **kwargs)
 
-    def __init__(self, name, *funs, **kwargs):
-        super().__init__(name, *funs, **kwargs)
+class Gnd(Pin):
+    def __init__(self, name, **kwargs):
+        kwargs['type'] = PinType.GND
+        super().__init__(name, **kwargs)

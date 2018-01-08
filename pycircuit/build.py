@@ -1,15 +1,20 @@
 import os
 import hashlib
 import shutil
-from pycircuit.circuit import Netlist
+from pycircuit.circuit import Netlist, Circuit
 from pycircuit.compiler import Compiler
 from pycircuit.formats import *
 from pycircuit.pcb import Pcb
 
 
+def netlistsvg(filein, fileout):
+    skin = '~/repos/netlistsvg/lib/analog.svg'
+    os.system('netlistsvg --skin %s %s -o %s' % (skin, filein, fileout))
+
+
 def default_compile(filein, fileout):
     compiler = Compiler()
-    compiler.compile(filein, fileout)
+    return compiler.compile(filein, fileout)
 
 
 def default_place(filein, fileout):
@@ -48,8 +53,9 @@ class Builder(object):
             'route_in': self.base_file_name + '.route',
             'route_out': self.base_file_name + '.out.route',
             'spice': self.base_file_name + '.sp',
-            'net_svg': 'net.dot', # + '.svg'
-            'pcb_svg': 'pcb.svg',
+            'net_yosys': self.base_file_name + '.json',
+            'net_svg': self.base_file_name + '.net.svg',
+            'pcb_svg': self.base_file_name + '.pcb.svg',
             'kicad': self.base_file_name + '.kicad_pcb'
         }
         for tag, filename in self.files.items():
@@ -72,7 +78,6 @@ class Builder(object):
             return None
 
     def write_hashfile(self):
-        print('Writing hashfile')
         with open(self.files['hash'], 'w+') as f:
             for name, path in self.files.items():
                 if name == 'hash':
@@ -80,7 +85,6 @@ class Builder(object):
                 print(path, self.file_hash(path), file=f)
 
     def read_hashfile(self):
-        print('Reading hashfile')
         try:
             with open(self.files['hash']) as f:
                 for line in f.read().split('\n'):
@@ -111,40 +115,29 @@ class Builder(object):
             pcb.from_route(routes)
         return pcb
 
+    def step(self, input, output, call):
+        if not self.stored_hash(input) == self.current_hash(input) \
+           or self.current_hash(output) is None:
+            result = call(self.files[input], self.files[output])
+            self.write_hashfile()
+            return True, result
+        else:
+            return False, None
+
     def build(self):
-        self.read_hashfile()
-        self.circuit.to_file(self.files['net_in'])
-
         self.compile()
-
-        if self.design_rules is not None:
-            self.place()
-            self.route()
-            self.post_process()
 
     def compile(self):
-        if not self.stored_hash('net_in') == self.current_hash('net_in') \
-           or self.stored_hash('net_out') is None:
-
-            print('Compiling')
-            self.compile_hook(self.files['net_in'], self.files['net_out'])
-
-            Netlist.from_file(self.files['net_out']).to_graphviz(self.files['net_svg'])
-
-            if self.design_rules is not None:
-                self.new_pcb(self.files['net_out']) \
-                    .to_place(self.files['place_in'])
-
-            self.write_hashfile()
-        else:
-            print('Skipping compile')
-
-    def get_netlist(self):
         self.read_hashfile()
         self.circuit.to_file(self.files['net_in'])
 
-        self.compile()
-        return Netlist.from_file(self.files['net_out'])
+        run, circuit = self.step('net_in', 'net_out', self.compile_hook)
+        if not run:
+            circuit = Circuit.from_file(self.files['net_out'])
+
+        self.step('net_out', 'net_yosys', lambda _, x: circuit.to_yosys_file(x))
+        self.step('net_yosys', 'net_svg', netlistsvg)
+        return circuit
 
     def place(self):
         if not self.stored_hash('place_in') == self.current_hash('place_in') \

@@ -29,8 +29,8 @@ class PinAssignTests(unittest.TestCase):
     def test_obvious_assign(self):
         component = Component.component_by_name('R')
         problem = AssignmentProblem(component, (
-            Assign('~', 0),
-            Assign('~', 1),
+            Z3Assign('~', 0),
+            Z3Assign('~', 1),
         ))
 
         problem.solve()
@@ -40,11 +40,11 @@ class PinAssignTests(unittest.TestCase):
     def test_simple_assign(self):
         component = Component.component_by_name('MCU')
         problem = AssignmentProblem(component, (
-            Assign('GPIO', 0),
-            Assign('GPIO', 1),
-            Assign('UART_TX', 2),
-            Assign('UART_RX', 3),
-            Assign('VCC', 4)
+            Z3Assign('GPIO', 0),
+            Z3Assign('GPIO', 1),
+            Z3Assign('UART_TX', 2),
+            Z3Assign('UART_RX', 3),
+            Z3Assign('VCC', 4)
         ))
 
         problem.solve()
@@ -54,13 +54,13 @@ class PinAssignTests(unittest.TestCase):
     def test_bus_assign(self):
         component = Component.component_by_name('MCU')
         problem = AssignmentProblem(component, (
-            Assign('GPIO', 0),
-            Assign('GPIO', 1),
-            BusAssign(
-                Assign('UART_TX', 2),
-                Assign('UART_RX', 3)
+            Z3Assign('GPIO', 0),
+            Z3Assign('GPIO', 1),
+            Z3BusAssign(
+                Z3Assign('UART_TX', 2),
+                Z3Assign('UART_RX', 3)
             ),
-            Assign('VCC', 4)
+            Z3Assign('VCC', 4)
         ))
 
         problem.solve()
@@ -70,17 +70,17 @@ class PinAssignTests(unittest.TestCase):
     def test_multiple_bus_assign(self):
         component = Component.component_by_name('3x0806')
         problem = AssignmentProblem(component, (
-            BusAssign(
-                Assign('~', 0),
-                Assign('~', 1)
+            Z3BusAssign(
+                Z3Assign('~', 0),
+                Z3Assign('~', 1)
             ),
-            BusAssign(
-                Assign('~', 2),
-                Assign('~', 3)
+            Z3BusAssign(
+                Z3Assign('~', 2),
+                Z3Assign('~', 3)
             ),
-            BusAssign(
-                Assign('+', 4),
-                Assign('-', 5)
+            Z3BusAssign(
+                Z3Assign('+', 4),
+                Z3Assign('-', 5)
             )
         ))
 
