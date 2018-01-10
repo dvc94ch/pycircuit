@@ -52,23 +52,23 @@ def to_spice(self):
                 assign = self.assign_by_pin_name(name)
                 if assign is None:
                     continue
-                if assign.to.name.lower() == 'gnd':
+                if assign.net.name.lower() == 'gnd':
                     nodes.append('0')
                 else:
-                    nodes.append(assign.to.name)
+                    nodes.append(assign.net.name)
         return nodes
 
     models = []
 
     if self.component.name == 'R':
-        nodes = nodes_from_assigns('1', '2')
+        nodes = nodes_from_assigns('A', 'B')
         models.append(SpiceInst('R', self.name, nodes, self.value))
     elif self.component.name == 'C':
-        nodes = nodes_from_assigns('1', '2')
+        nodes = nodes_from_assigns('A', 'B')
         models.append(SpiceInst('C', self.name, nodes, self.value))
     elif self.component.name == 'L':
-        nodes = [assign.to.name for assign in self.assigns]
-        models.append(SpiceInst('C', self.name, nodes, self.value))
+        nodes = nodes_from_assigns('A', 'B')
+        models.append(SpiceInst('L', self.name, nodes, self.value))
     elif self.component.name == 'V':
         nodes = nodes_from_assigns('+', '-')
         net = 'n' + str(UID.uid())
