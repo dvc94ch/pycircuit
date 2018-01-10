@@ -106,13 +106,13 @@ class Builder(object):
     def current_hash(self, name):
         return self.file_hash(self.files[name])
 
-    def new_pcb(self, netlist, placement=None, routes=None):
-        netlist = Netlist.from_file(netlist)
+    def load_pcb(self, place=False, route=False):
+        netlist = Netlist.from_file(self.files['net_out'])
         pcb = Pcb(netlist, *self.design_rules())
-        if not placement is None:
-            pcb.from_place(placement)
-        if not routes is None:
-            pcb.from_route(routes)
+        if place:
+            pcb.from_place(self.files['place_out'])
+        if route:
+            pcb.from_route(self.files['route_out'])
         return pcb
 
     def step(self, input, output, call):
@@ -126,6 +126,10 @@ class Builder(object):
 
     def build(self):
         self.compile()
+        self.place()
+        self.route()
+        self.post_process()
+
 
     def compile(self):
         self.read_hashfile()
@@ -140,51 +144,23 @@ class Builder(object):
         return circuit
 
     def place(self):
-        if not self.stored_hash('place_in') == self.current_hash('place_in') \
-           or self.stored_hash('place_out') is None:
-
-            print('Placing')
-            self.place_hook(self.files['place_in'], self.files['place_out'])
-
-            self.new_pcb(self.files['net_out'],
-                         self.files['place_out']) \
-                .to_svg(self.files['pcb_svg'])
-
-            self.new_pcb(self.files['net_out'],
-                         self.files['place_out']) \
-                .to_route(self.files['route_in'])
-
-            self.write_hashfile()
-        else:
-            print('Skipping place')
+        pcb = self.load_pcb()
+        self.step('net_out', 'place_in', lambda _, x: pcb.to_place(x))
+        self.step('place_in', 'place_out', self.place_hook)
+        pcb = self.load_pcb(place=True)
+        self.step('place_out', 'pcb_svg', lambda _, x: pcb.to_svg(x))
 
     def route(self):
-        if not self.stored_hash('route_in') == self.current_hash('route_in') \
-           or self.stored_hash('route_out') is None:
-
-            print('Routing')
-            self.route_hook(self.files['route_in'], self.files['route_out'])
-
-            self.new_pcb(self.files['net_out'],
-                         self.files['place_out'],
-                         self.files['route_out']) \
-                .to_svg(self.files['pcb_svg'])
-
-            self.write_hashfile()
-        else:
-            print('Skipping route')
+        pcb = self.load_pcb(place=True)
+        self.step('place_out', 'route_in', lambda _, x: pcb.to_route(x))
+        self.step('route_in', 'route_out', self.route_hook)
+        pcb = self.load_pcb(place=True, route=True)
+        self.step('route_out', 'pcb_svg', lambda _, x: pcb.to_svg(x))
 
     def post_process(self):
-        print('Post processing')
-        pcb = self.new_pcb(self.files['net_out'],
-                           self.files['place_out'],
-                           self.files['route_out'])
-
+        pcb = self.load_pcb(place=True, route=True)
         kpcb = self.post_process_hook(pcb, pcb.to_kicad())
-
         kpcb.to_file(self.files['kicad'])
-
-        self.write_hashfile()
 
     def clean(self):
         shutil.rmtree(self.builddir)
