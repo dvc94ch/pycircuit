@@ -1,3 +1,4 @@
+import math
 import re
 from enum import Enum
 from pycircuit.component import Component, Pin, PinType
@@ -58,7 +59,7 @@ class CircuitElement(object):
 
 
 class NetType(Enum):
-    SIGNAL, POWER, GND = range(3)
+    SIGNAL, VCC, VEE, GND = range(4)
 
     def __str__(self):
         return self.name.lower()
@@ -69,6 +70,19 @@ class Net(CircuitElement):
         super().__init__(name, _parent, _uid, _guid)
         self.type = NetType.SIGNAL
 
+    def set_net_type(self):
+        for assign in self.assigns:
+            v = assign.node_voltage()
+            if v is None:
+                continue
+            if v == 0:
+                self.type = NetType.GND
+            elif v > 0:
+                self.type = NetType.VCC
+            else:
+                self.type = NetType.VEE
+            break
+
     def __repr__(self):
         return '%s %s' % (str(self.type), self.name)
 
@@ -76,14 +90,20 @@ class Net(CircuitElement):
 class PortType(Enum):
     POWER, GND, IN, OUT = range(4)
 
+    def invert(self):
+        if self is PortType.IN:
+            return PortType.OUT
+        if self is PortType.OUT:
+            return PortType.IN
+        # See ERCType for this to make sense
+        if self is PortType.GND:
+            return PortType.IN
+        if self is PortType.POWER:
+            return PortType.OUT
+        return self
+
     def __str__(self):
         return self.name.lower()
-
-    def is_power(self):
-        return self is PortType.POWER
-
-    def is_gnd(self):
-        return self is PortType.GND
 
     @classmethod
     def from_string(cls, string):
@@ -105,19 +125,16 @@ class Port(CircuitElement):
         self.internal = None
         self.external = None
 
-    def external_net(self):
-        '''Returns the external net of a Port.'''
-
-        if self.external is None:
-            self.external = PortAssign(self, Net(self.name))
-        return self.external.net
-
     def internal_net(self):
         '''Returns the internal net of a Port.'''
 
         if self.internal is None:
             self.internal = PortAssign(self, Net(self.name))
         return self.internal.net
+
+    def is_external(self):
+        # No connection has been made externally
+        return self.external is None
 
     def __repr__(self):
         return '%s %s' % (str(self.type), self.name)
@@ -139,7 +156,7 @@ class Port(CircuitElement):
         if 'internal' in obj:
             port.internal = PortAssign.from_object(obj['internal'], parent, port)
         if 'external' in obj:
-            port.external = PortAssign.from_object(obj['external'], parent, port)
+            port.external = PortAssign.from_object(obj['external'], parent, port, external=True)
         return port
 
 
@@ -235,6 +252,12 @@ class InstAssign(Assign):
         self.pin = None
         self.type = None
 
+    def node_voltage(self):
+        if self.pin.type == PinType.POWER:
+            return parse_power_net(self.pin.name)
+        elif self.pin.type == PinType.GND:
+            return 0
+
     def __str__(self):
         return self.inst.name
 
@@ -263,13 +286,21 @@ class InstAssign(Assign):
 
 
 class PortAssign(Assign):
-    def __init__(self, port, net,
+    def __init__(self, port, net, external=False,
                  _parent=None, _uid=None, _guid=None):
         assert isinstance(port, Port)
         super().__init__(net, _parent, _uid, _guid)
         self.port = port
         self.port.assigns.append(self)
         self.type = self.port.type
+        if not external:
+            self.type = self.type.invert()
+
+    def node_voltage(self):
+        if self.port.type == PortType.POWER:
+            return parse_power_net(self.port.name)
+        elif self.port.type == PortType.GND:
+            return 0
 
     def __str__(self):
         return self.port.name
@@ -281,9 +312,9 @@ class PortAssign(Assign):
         return super().to_object()
 
     @classmethod
-    def from_object(cls, obj, parent, port):
+    def from_object(cls, obj, parent, port, external=False):
         net = parent.net_by_uid(obj['net'])
-        return cls(port, net,
+        return cls(port, net, external=external,
                    _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
 
 
@@ -375,6 +406,7 @@ class Circuit(Netlist):
         self.parent = _parent
         super().__init__(name)
 
+        self.uid = UID.uid()
         self.subinsts = []
         self.ports = []
         self.port_assigns = []
@@ -415,6 +447,11 @@ class Circuit(Netlist):
         for port in self.ports:
             if port.name == name:
                 return port
+
+    def external_ports(self):
+        for port in self.iter_ports():
+            if port.is_external():
+                yield port
 
     def ports_by_guid(self, guid):
         for port in self.ports:
@@ -509,21 +546,15 @@ class Circuit(Netlist):
 class ERCType(Enum):
     INPUT, OUTPUT, UNKNOWN = range(3)
 
+    def invert(self):
+        if self is ERCType.INPUT:
+            return ERCType.OUTPUT
+        if self is ERCType.OUTPUT:
+            return ERCType.INPUT
+        return ERCType.UNKNOWN
+
     def __str__(self):
         return self.name.lower()
-
-    @staticmethod
-    def same(erc_type1, erc_type2):
-        if erc_type1 == ERCType.INPUT:
-            if erc_type2 == ERCType.OUTPUT:
-                raise AssertionError()
-            return ERCType.INPUT, ERCType.INPUT
-        elif erc_type1 == ERCType.OUTPUT:
-            if erc_type2 == ERCType.INPUT:
-                raise AssertionError()
-            return ERCType.OUTPUT, ERCType.OUTPUT
-        else:
-            return erc_type2, erc_type2
 
     @staticmethod
     def diff(erc_type1, erc_type2):
@@ -551,7 +582,7 @@ class ERCType(Enum):
             else:
                 return ERCType.INPUT
         elif isinstance(ty, PinType):
-            if ty == PinType.PASSIVE or ty == PinType.INOUT:
+            if ty == PinType.UNKNOWN or ty == PinType.INOUT:
                 return ERCType.UNKNOWN
             elif ty == PinType.OUT or ty == PinType.GND:
                 return ERCType.OUTPUT
@@ -576,12 +607,14 @@ class SubInst(CircuitElement):
 
     def assign(self, port_name, net):
         port = self.circuit.port_by_name(port_name)
-        assert port is not None
+        if port is None:
+            raise Exception('No port named %s in circuit %s'
+                            % (port_name, self.circuit.name))
 
         if isinstance(net, Port):
             net = net.internal_net()
 
-        assign = PortAssign(port, net)
+        assign = PortAssign(port, net, external=True)
         port.external = assign
 
         self.assigns.append(assign)
@@ -620,9 +653,16 @@ def parse_busses(string, cons, **kwargs):
     return busses
 
 def parse_power_net(string):
-    lstr = string.lower().replace('v', '.')
-    if lstr == 'gnd':
+    lstr = string.lower()
+    if lstr == 'vcc':
+        return math.inf
+    elif lstr == 'vee':
+        return -math.inf
+
+    if 'gnd' in lstr:
         return 0
+
+    lstr = lstr.replace('v', '.')
     if lstr.startswith('.'):
         lstr = lstr[1:]
     if lstr.endswith('.'):
@@ -647,6 +687,20 @@ def circuit(name, gnd=None, power=None, inputs=None, outputs=None):
                 parse_busses(gnd, Port, type=PortType.GND)
             if power is not None:
                 parse_busses(power, Port, type=PortType.POWER)
+
+            # Check that gnd and power nets have valid names
+            for port in active.ports:
+                try:
+                    v = parse_power_net(port.name)
+                    if v == 0:
+                        assert port.type == PortType.GND
+                except AssertionError:
+                    raise Exception('Err: Port %s is not a gnd port.'
+                                    % port.name)
+                except Exception:
+                    raise Exception('Err: %s is an invalid name for gnd or power port.'
+                                    % port.name)
+
             if inputs is not None:
                 parse_busses(inputs, Port, type=PortType.IN)
             if outputs is not None:
@@ -683,23 +737,26 @@ def circuit(name, gnd=None, power=None, inputs=None, outputs=None):
     return closure
 
 
-'''
 def testbench(circuit):
     tb = Circuit(circuit.name + '_testbench')
+    Circuit.active_circuit = tb
 
     dut = SubInst(circuit, _parent=tb)
+    gnd = Net('gnd', _parent=tb)
     nets = []
 
-    for port in circuit.ports:
-        nets.append(Net(port.name, _parent=tb))
-        dut[port.name] = nets[-1]
+    for port in dut.circuit.external_ports():
+        if port.type == PortType.GND:
+            dut[port.name] = gnd
+        else:
+            nets.append(Net(port.name, _parent=tb))
+            dut[port.name] = nets[-1]
 
-        if port.type == Port.POWER:
-            v = parse_power_net(port.name)
-            Inst('V', 'dc %d' % v, _parent=tb)['+', '-'] = nets[-1], circuit.gnd
-        elif port.type == Port.INPUT:
-            Inst('V', 'dc 0 ac 1', _parent=tb)['+', '-'] = nets[-1], circuit.gnd
-        elif port.type == Port.OUTPUT:
-            Inst('TP', _parent=tb)['TP'] = nets[-1]
+            if port.type == PortType.POWER:
+                Inst('V', 'dc %d' % parse_power_net(port.name), _parent=tb)['+', '-'] = nets[-1], gnd
+            elif port.type == PortType.IN:
+                Inst('V', 'sin(0, 0.1, 1K) ac 1', _parent=tb)['+', '-'] = nets[-1], gnd
+            elif port.type == PortType.OUT:
+                Inst('TP', _parent=tb)['TP'] = nets[-1]
+
     return tb
-'''

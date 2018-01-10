@@ -21,8 +21,8 @@ Component('L', 'Inductor',
           Pin('B', Fun('~'), optional=False))
 
 Component('V', 'Voltage source',
-          Out('+', optional=False),
-          In('-', optional=False))
+          Pin('+', optional=False),
+          Pin('-', optional=False))
 
 Component('S', 'Switch',
           Pin('A', Fun('~'), optional=False),
@@ -33,7 +33,7 @@ Component('XTAL', 'Crystal',
           Pin('B', Fun('~'), optional=False))
 
 Component('TP', 'Test point',
-          Pin('TP', optional=False))
+          In('TP', optional=False))
 
 Component('J2P', 'Jumper 2-pins',
           Pin('A', Fun('~'), optional=False),
@@ -55,20 +55,20 @@ Component('Transformer_1P_1S', 'Transformer with one primary and one secondary w
 
 ### Active Devices
 Component('D', 'Diode',
-          In('+', optional=False),
-          Out('-', optional=False))
+          Pin('+', optional=False),
+          Pin('-', optional=False))
 
 Component('Q', 'Bipolar transistor',
-          In('B', optional=False),
-          In('C', optional=False),
-          Out('E', optional=False),
-          Out('SUBSTRATE'))
+          Pin('B', optional=False),
+          Pin('C', optional=False),
+          Pin('E', optional=False),
+          Pin('SUBSTRATE'))
 
 Component('M', 'Mosfet',
-          In('G', optional=False),
-          In('D', optional=False),
-          Out('S', optional=False),
-          Out('SUBSTRATE'))
+          Pin('G', optional=False),
+          Pin('D', optional=False),
+          Pin('S', optional=False),
+          Pin('SUBSTRATE'))
 
 Component('OP', 'Opamp',
           Pwr('VCC', optional=False),

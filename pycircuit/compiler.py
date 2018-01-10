@@ -58,8 +58,8 @@ class Compiler(object):
 
         if inst.value is None:
             inst.device = devices[0]
-            #print('Warn: Randomly assigning device %s to %s'
-            #      % (inst.name, inst.device.name))
+            print('Warn: Randomly assigning device %s to %s'
+                  % (inst.name, inst.device.name))
             return
 
         value_parts = inst.value.lower().split(' ')
@@ -91,8 +91,8 @@ class Compiler(object):
                     yield item
 
     @staticmethod
-    def find_path(circuit, start):
-        '''Returns a Path from start in an elaborated Circuit.
+    def find_paths(start):
+        '''Returns an iterator of Path's from start.
         path    := (port_ext | pin) - subpath
         subpath := net
                  | net2 - (port_ext | pin)
@@ -100,62 +100,98 @@ class Compiler(object):
                  | net2 - port_int - subpath
         '''
 
-        def next_assign(assigns, assign):
-            if len(assigns) == 2:
-                if assigns[0] == assign:
-                    return assigns[1]
-                return assigns[0]
+        def inst2(inst, assign):
+            if inst.assigns[0] == assign:
+                return inst.assigns[1]
+            return inst.assigns[0]
 
-        path = Path(start)
-        assign = start
+        def net2(net, assign):
+            if net.assigns[0] == assign:
+                return net.assigns[1]
+            return net.assigns[0]
 
-        while True:
-            assign = next_assign(assign.net.assigns, assign)
+        def port_int(port, assign):
+            if port.external == assign:
+                return port.internal
+            return port.external
 
-            if assign is None:
-                # subpath = net
-                return path
+        def net(net, assign):
+            for nassign in net.assigns:
+                if not nassign == assign:
+                    yield nassign
 
-            # subpath = net2
-            if not path.next(assign):
-                return path
+        def subpath(path, split_net=False):
+            assign = path[-1]
+            while True:
+                if not split_net:
+                    if not len(assign.net.assigns) == 2:
+                        # subpath = net
+                        return path
 
-            if isinstance(assign, PortAssign):
-                assign = next_assign(assign.port.assigns, assign)
-                if assign is None:
-                    # subpath = net2 - port_ext
+                    # subpath = net2
+                    assign = net2(assign.net, assign)
+                    path.next(assign)
+
+                if isinstance(assign, PortAssign):
+                    if assign.port.is_external():
+                        # subpath = net2 - port_ext
+                        return path
+                    else:
+                        # subpath = net2 - port_int
+                        assign = port_int(assign.port, assign)
+                        if path.next(assign) is None:
+                            return path
+                        else:
+                            split_net = False
+                            continue
+
+                if not len(assign.inst.assigns) == 2:
+                    # subpath = net2 - pin
                     return path
 
-                # subpath = net2 - port_int
-                if not path.next(assign.port.internal):
-                    return path
+                # subpath = net2 - inst2
+                assign = inst2(assign.inst, assign)
+                path.next(assign)
 
+                split_net = False
                 continue
 
-            assign = next_assign(assign.inst.assigns, assign)
-            if assign is None:
-                # subpath = net2 - pin
-                return path
 
-            # subpath = net2 - inst2
-            if not path.next(assign):
-                return path
+        split_net = False
+        path = Path()
 
-            continue
+        if path.next(start) is None:
+            return iter([])
+
+        if isinstance(start, PortAssign):
+            for assign in start.net.assigns:
+                if not start == assign:
+                    path = Path().next(start).next(assign)
+                    if path is not None:
+                        yield subpath(path, split_net=True)
+        else:
+            yield subpath(path)
+
 
     @staticmethod
-    def find_paths(circuit):
-        for port in circuit.ports:
-            if len(port.assigns) == 1:
-                path = Compiler.find_path(circuit, port.internal)
-                if not path.is_empty():
+    def circuit_paths(circuit):
+        for port in circuit.external_ports():
+            for path in Compiler.find_paths(port.internal):
+                yield path
+
+        skipped_insts = []
+        for inst in circuit.insts:
+            if len(inst.assigns) == 2:
+                skipped_insts.append(inst)
+                continue
+            for assign in inst.assigns:
+                for path in Compiler.find_paths(assign):
+                    yield path
+        for inst in skipped_insts:
+            for assign in inst.assigns:
+                for path in Compiler.find_paths(assign):
                     yield path
 
-        for inst in circuit.insts:
-            for assign in inst.assigns:
-                path = Compiler.find_path(circuit, assign)
-                if not path.is_empty():
-                    yield path
 
     @staticmethod
     def analyze_path(path):
@@ -170,26 +206,19 @@ class Compiler(object):
 
         def check_assign(assign1, assign2):
             try:
-                if isinstance(assign1, InstAssign) and \
-                   isinstance(assign2, InstAssign):
-                    # When both assigns are InstAssign's
-                    # one has to be an input and the other
-                    # an output
-                    assign1.erc_type, assign2.erc_type = ERCType.diff(assign1.erc_type, assign2.erc_type)
-                else:
-                    assign1.erc_type, assign2.erc_type = ERCType.same(assign1.erc_type, assign2.erc_type)
+                assign1.erc_type, assign2.erc_type = ERCType.diff(assign1.erc_type, assign2.erc_type)
             except AssertionError:
                 print('ERC Error:',
                       assign_to_string(assign1),
                       '<>',
                       assign_to_string(assign2))
-                raise AssertionError()
 
         for i, assign in enumerate(path.assigns[1:]):
             check_assign(assign, path.assigns[i])
         for i, assign in enumerate(path.assigns[0:-1]):
             check_assign(assign, path.assigns[i + 1])
-        #print(path)
+
+        #print(repr(path))
 
         # Join nets through ports
         for assign in path.assigns:
@@ -197,6 +226,22 @@ class Compiler(object):
                 assign.port.external.net.assigns += assign.port.internal.net.assigns
                 for net_assign in assign.port.external.net.assigns:
                     net_assign.net = assign.port.external.net
+
+    @staticmethod
+    def port_swap(direction, assign1, assign2):
+        def swap(assign1, assign2):
+            if assign1.pin.id > assign2.pin.id:
+                pin1 = assign2.pin
+                assign2.pin = assign1.pin
+                assign1.pin = pin1
+
+        if assign1.inst == assign2.inst and \
+           assign1.function == assign2.function:
+            if direction > 0:
+                assign = assign1
+                assign1 = assign2
+                assign2 = assign
+            swap(assign1, assign2)
 
     def compile(self, net_in, net_out):
         circuit = Circuit.from_file(net_in)
@@ -213,36 +258,31 @@ class Compiler(object):
         for port_assign in circuit.iter_port_assigns():
             port_assign.erc_type = ERCType.from_type(port_assign.type)
 
+        # Detect POWER and GND Net's
+        for net in circuit.iter_nets():
+            net.set_net_type()
 
         # Find paths
         paths = []
-        for path in Compiler.find_paths(circuit):
+        for path in Compiler.circuit_paths(circuit):
             Compiler.analyze_path(path)
+
+            direction, horizontal = path.flow()
+            # Set orientation
+            for assign in path:
+                if isinstance(assign, InstAssign):
+                    assign.inst.horizontal = horizontal
+
+            # Swap ports
+            for i, assign in enumerate(path[1:]):
+                if isinstance(assign, InstAssign) and \
+                   isinstance(path[i], InstAssign):
+                    Compiler.port_swap(direction, assign, path[i])
+
             paths.append(path)
 
-
-        # Detect POWER and GND Net's
-        for net in circuit.iter_nets():
-            for assign in net.assigns:
-                if assign.type.is_power():
-                    net.type = NetType.POWER
-                    break
-                if assign.type.is_gnd():
-                    net.type = NetType.GND
-                    break
-
-        # Check path type
-        for path in paths:
-            print(path.type())
-
-
         # Remove unneeded ports
-        ports = []
-        for port in circuit.ports:
-            if len(port.assigns) == 1:
-                ports.append(port)
-        circuit.ports = ports
-
+        circuit.ports = list(circuit.external_ports())
 
         circuit.to_file(net_out)
         return circuit
@@ -251,24 +291,60 @@ class Compiler(object):
 class Path(object):
     assigns = set()
 
-    def __init__(self, start):
-        assert isinstance(start, Assign)
+    def __init__(self):
         self.assigns = []
-        self.next(start)
 
     def next(self, assign):
         assert isinstance(assign, Assign)
-        if assign in Path.assigns:
-            return False
-        Path.assigns.add(assign)
-        self.assigns.append(assign)
-        return True
+        if not assign in Path.assigns:
+            if isinstance(assign, InstAssign) or \
+               not assign.port.is_external():
+                Path.assigns.add(assign)
 
-    def is_empty(self):
-        return len(self.assigns) == 0
+            self.assigns.append(assign)
+            return self
 
-    def type(self):
-        return str(self.assigns[0].net.type) + ' - ' + str(self.assigns[-1].net.type)
+    def flow(self):
+        '''Returns the flow direction of the path, and if it's
+        a SIGNAL to SIGNAL path.'''
+        start = self.assigns[0]
+        end = self.assigns[-1]
+        snet_type = start.net.type
+        enet_type = end.net.type
+
+        if snet_type == NetType.VCC or enet_type == NetType.VEE:
+            return 1, False
+        if enet_type == NetType.VCC or snet_type == NetType.VEE:
+            return -1, False
+        # Neither snet_type nor enet_type are VCC or VEE
+        if snet_type == NetType.GND:
+            return -1, False
+        if enet_type == NetType.GND:
+            return 1, False
+
+        # Both net_types are SIGNAL
+        erc_type = start.erc_type
+        # If is a PortAssign, invert to determine flow
+        if isinstance(start, PortAssign):
+            erc_type = erc_type.invert()
+
+        if erc_type == ERCType.INPUT:
+            return 1, True
+        if erc_type == ERCType.OUTPUT:
+            return -1, True
+
+        print('Warn: Guessing flow direction. start: %s, end: %s'
+              % (repr(start), repr(end)))
+        return 1, True
+
+    def __getitem__(self, index):
+        return self.assigns[index]
+
+    def __len__(self):
+        return len(self.assigns)
+
+    def __iter__(self):
+        return iter(self.assigns)
 
     def __repr__(self):
         def assign_to_string(assign):

@@ -2,16 +2,10 @@ from enum import Enum
 
 
 class PinType(Enum):
-    POWER, GND, IN, OUT, INOUT, PASSIVE = range(6)
+    POWER, GND, IN, OUT, INOUT, UNKNOWN = range(6)
 
     def __str__(self):
         return self.name.lower()
-
-    def is_power(self):
-        return self is PinType.POWER
-
-    def is_gnd(self):
-        return self is PinType.GND
 
     @classmethod
     def from_string(cls, string):
@@ -25,8 +19,8 @@ class PinType(Enum):
             return PinType.OUT
         if string == 'inout':
             return PinType.INOUT
-        if string == 'passive':
-            return PinType.PASSIVE
+        if string == 'unknown':
+            return PinType.UNKNOWN
 
 
 class Fun(object):
@@ -63,7 +57,7 @@ class Pin(object):
         self.device = None
         self.name = name
         self.funs = []
-        self.type = PinType.PASSIVE
+        self.type = PinType.UNKNOWN
 
         self.optional = True
         if 'optional' in kwargs:
