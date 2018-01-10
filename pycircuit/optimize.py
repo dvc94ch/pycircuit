@@ -75,7 +75,7 @@ class Optimizer(object):
 
     def cost(self, vector):
         values = self._vector_to_values(vector)
-        return sum(abs(self.target - values))
+        return sum(abs(self.target - values) ** 2)
 
     def plot_result(self):
         values = self._vector_to_values(self.de.best_vector)
@@ -101,15 +101,7 @@ class Optimizer(object):
 
         plt.show()
 
-    def optimize(self, threshold=None):
-        while True:
-            self.de.solve()
-            min_cost = self.cost(self.de.best_vector)
-
-            if threshold is None or min_cost < threshold:
-                return min_cost
-
-    @classmethod
-    def from_twoport(cls, two_port, spec):
-        netlist = Builder(testbench(two_port)).get_netlist()
-        return cls(netlist, spec)
+    def optimize(self):
+        self.de.solve(10)
+        min_cost = self.cost(self.de.best_vector)
+        return min_cost
