@@ -52,7 +52,7 @@ def led(self, gnd, vin):
     n1 = nets('n1')
 
     Inst('R')['~', '~'] = vin, n1
-    Inst('D')['+', '-'] = n1, gnd
+    Inst('D', 'led')['+', '-'] = n1, gnd
 
 
 @circuit('RGB', 'gnd', None, 'red green blue')

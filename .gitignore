@@ -3,7 +3,3 @@ dist/
 MANIFEST
 .cache/
 *.pyc
-*.svg
-*.dot
-*.kicad_pcb
-*.pro

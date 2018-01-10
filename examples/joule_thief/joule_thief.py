@@ -13,7 +13,7 @@ Device('TDK ACT45B', 'Transformer_1P_1S', 'TDK ACT45B',
        Map('1', 'L1.1'), Map('2', 'L2.1'), Map('3', 'L2.2'), Map('4', 'L1.2'))
 
 
-@circuit('Joule Thief', 'gnd', 'vin', 'vout')
+@circuit('Joule Thief', 'gnd', 'vcc', None, 'vout')
 def joule_thief(self, gnd, vin, vout):
     nb, nr = nets('nb nr')
 
@@ -30,27 +30,10 @@ def joule_thief(self, gnd, vin, vout):
 def top(self):
     vcc, gnd, vout = nets('vcc gnd vout')
 
-    SubInst(joule_thief())['vin', 'vout', 'gnd'] = vcc, vout, gnd
+    SubInst(joule_thief())['vcc', 'vout', 'gnd'] = vcc, vout, gnd
     Inst('V', '1.5V')['+', '-'] = vcc, gnd
     Inst('TP')['TP'] = vout
 
-
-'''
-def test_bench():
-    import ngspyce as ng
-    import numpy as np
-    from matplotlib import pyplot as plt
-    netlist = Builder(top()).get_netlist()
-    netlist.to_spice('joule_thief.sp')
-    ng.source('joule_thief.sp')
-    ng.cmd('tran 1us 500us')
-
-    print('\n'.join(ng.vector_names()))
-    time, tp1 = map(ng.vector, ['time', 'V(VOUT)'])
-    plt.plot(time, tp1, label='VOUT')
-    plt.legend()
-    plt.show()
-'''
 
 if __name__ == '__main__':
     from pycircuit.formats import *

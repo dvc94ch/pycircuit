@@ -1,8 +1,8 @@
-import small
 from pycircuit.build import Builder
 from pycircuit.library.design_rules import oshpark_4layer
 from placer import Placer
 from pykicad.pcb import Zone
+from mcu import mcu
 
 
 def place(filein, fileout):
@@ -21,5 +21,5 @@ def post_process(pcb, kpcb):
 
 
 if __name__ == '__main__':
-    Builder(small.top(), oshpark_4layer,
+    Builder(mcu(), oshpark_4layer,
             place=place, post_process=post_process).build()

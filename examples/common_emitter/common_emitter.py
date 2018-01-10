@@ -2,45 +2,24 @@ from pycircuit.circuit import *
 from pycircuit.library import *
 
 
-@circuit('Common Emitter Amplifer', '12V gnd', 'vin', 'vout')
-def common_emitter_amplifer(self, vcc, gnd, vin, vout):
+@circuit('Common Emitter', 'gnd', '12V', 'vin', 'vout')
+def common_emitter_amplifer(self, gnd, vcc, vin, vout):
     nb, ne = nets('nb ne')
     Inst('Q', 'npn sot23')['B', 'C', 'E'] = nb, vout, ne
 
     # Current limiting resistor
-    Inst('R')['~', '~'] = vcc, vout
+    Inst('R', '1.2k')['~', '~'] = vcc, vout
 
     # Thermal stabilization (leads to a gain reduction)
-    Inst('R')['~', '~'] = ne, gnd
+    Inst('R', '220')['~', '~'] = ne, gnd
     # Shorts Re for AC signal (increases gain)
-    Inst('C')['~', '~'] = ne, gnd
+    Inst('C', '10uF')['~', '~'] = ne, gnd
 
     # Biasing resistors
-    Inst('R')['~', '~'] = vcc, nb
-    Inst('R')['~', '~'] = nb, gnd
+    Inst('R', '20k')['~', '~'] = vcc, nb
+    Inst('R', '3.6k')['~', '~'] = nb, gnd
     # Decoupling capacitor
-    Inst('C')['~', '~'] = vin, nb
-
-
-'''def sim():
-    import ngspyce as ng
-    import numpy as np
-    from matplotlib import pyplot as plt
-    from pycircuit.formats import *
-    from pycircuit.build import Builder
-
-    testbench = test_bench(common_emitter_amplifer())
-    netlist = Builder.build(testbench).get_netlist()
-
-    netlist.to_spice('common_emitter_amplifier.sp')
-    ng.source('common_emitter_amplifier.sp')
-    ng.cmd('tran 1us 500us')
-
-    print('\n'.join(ng.vector_names()))
-    time, tp1 = map(ng.vector, ['time', 'V(VOUT)'])
-    plt.plot(time, tp1, label='VOUT')
-    plt.legend()
-    plt.show()'''
+    Inst('C', '10uF')['~', '~'] = vin, nb
 
 
 if __name__ == '__main__':
