@@ -1,7 +1,9 @@
 import xml.etree.cElementTree as xml
-from pycircuit.package import Package
-from pycircuit.pcb import Pcb, InstAttributes, Via, Segment, Layer
 from pycircuit.formats import extends
+from pycircuit.layers import Layer
+from pycircuit.package import Package
+from pycircuit.pcb import Pcb, InstAttributes
+from pycircuit.traces import Via, Segment
 
 
 class SvgElement(object):

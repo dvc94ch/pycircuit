@@ -21,6 +21,15 @@ class Pad(object):
     def __repr__(self):
         return '%s (%s, %s)' % (self.name, self.location[0], self.location[1])
 
+    def to_object(self):
+        return {
+            self.name: {
+                'x': self.location[0],
+                'y': self.location[1],
+                'r': self.angle,
+            }
+        }
+
 
 class PadArray(object):
     def __init__(self, length, pitch=0, radius=0, angle=0, prefix='', offset=0):
@@ -259,6 +268,19 @@ class Package(object):
     def size(self):
         bounds = self.courtyard.polygon.bounds
         return (bounds[2] - bounds[0], bounds[3] - bounds[1])
+
+    def to_object(self):
+        pads = {}
+        for pad in self.pads:
+            pads.update(pad.to_object())
+
+        return {
+            self.name: {
+                'width': self.courtyard.ipc_width,
+                'height': self.courtyard.ipc_height,
+                'pads': pads,
+            }
+        }
 
     def __str__(self):
         '''Returns the name of the Package.'''

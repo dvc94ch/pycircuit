@@ -3,6 +3,8 @@ import shapely.ops as ops
 from shapely.geometry import *
 from pycircuit.circuit import Netlist
 from pycircuit.device import Device
+from pycircuit.outline import Outline
+from pycircuit.traces import NetClass
 
 
 class Matrix(object):
@@ -51,69 +53,6 @@ class Matrix(object):
         return ops.transform(apply_matrix, geometry)
 
 
-class NetClass(object):
-    def __init__(self, net_class=None, segment_width=None,
-                 segment_clearance=None, via_diameter=None,
-                 via_drill=None, via_clearance=None):
-        self.parent = net_class
-        self._segment_width = segment_width
-        self._segment_clearance = segment_clearance
-        self._via_diameter = via_diameter
-        self._via_drill = via_drill
-        self._via_clearance = via_clearance
-
-    def __getattr__(self, attr):
-        value = getattr(self, '_' + attr)
-        if value is None:
-            return getattr(self.parent, attr)
-        return value
-
-
-class Segment(object):
-    def __init__(self, net, net_class, start, end, layer):
-        self.net = net
-        self.net_class = net_class
-
-        self.start = start
-        self.end = end
-        self.layer = layer
-
-        self.net.attributes.segments.append(self)
-        self.layer.segments.append(self)
-
-    def width(self):
-        return self.net_class.segment_width
-
-    def length(self):
-        '''Returns the length of the segment.'''
-
-        return Point(self.start[0:2]).distance(Point(self.end[0:2]))
-
-    def __str__(self):
-        return '%s %s' % (str(self.start), str(self.end))
-
-
-class Via(object):
-    def __init__(self, net, net_class, coord, layers):
-        self.net = net
-        self.net_class = net_class
-
-        self.coord = coord
-        self.layers = layers
-
-        self.net.attributes.vias.append(self)
-        for layer in layers:
-            layer.vias.append(self)
-
-    def diameter(self):
-        return self.net_class.via_diameter
-
-    def drill(self):
-        return self.net_class.via_drill
-
-    def layers(self):
-        for layer in self.layers:
-            yield layer
 
 
 class AbsolutePad(object):
@@ -133,7 +72,7 @@ class NetAttributes(object):
         self.net.attributes = self
         self.pcb = pcb
 
-        self.net_class = NetClass(pcb.net_class)
+        #self.net_class = NetClass(pcb.net_class)
         self.segments = []
         self.vias = []
 
@@ -249,66 +188,39 @@ class InstAttributes(object):
         else:
             self.flipped = not self.flipped
 
-
-class Layer(object):
-    Cu, Ag, Au = list(range(3))
-    oz = 34.79
-
-    def __init__(self, name, thickness, material=None):
-        # Properties
-        self.name = name
-        self.thickness = thickness
-        self.material = Layer.Cu if material is None else material
-        # Stackup
-        self.above = None
-        self.below = None
-        # Elements
-        self.packages = []
-        self.segments = []
-        self.vias = []
-
-    def __str__(self):
-        return self.name
+    def to_object(self):
+        top = self.pcb.attributes.layers.top
+        bottom = self.pcb.attributes.layers.bottom
+        return {
+            self.inst.name: {
+                'x': self.x,
+                'y': self.y,
+                'angle': self.angle,
+                'flipped': self.flipped,
+                'layer': bottom.name if self.flipped else top.name,
+                'package': self.inst.device.package.name,
+            }
+        }
 
 
-class Layers(object):
-    def __init__(self, layers):
-        for i, layer in enumerate(layers[0:-1]):
-            layer.below = layers[i + 1]
-        for i, layer in enumerate(layers[1:]):
-            layer.above = layers[i]
+class PcbAttributes(object):
+    def __init__(self, layers, outline_design_rules, trace_design_rules,
+                 cost_cm2):
         self.layers = layers
-
-    def __getitem__(self, index):
-        return self.layers[index]
-
-    def __str__(self):
-        return str([str(layer) for layer in self.layers])
-
-    @classmethod
-    def two_layer_board(cls, oz):
-        return cls([
-            Layer('top', Layer.oz * oz),
-            Layer('bottom', Layer.oz * oz)
-        ])
-
-    @classmethod
-    def four_layer_board(cls, oz_outer, oz_inner):
-        return cls([
-            Layer('top', Layer.oz * oz_outer),
-            Layer('inner1', Layer.oz * oz_inner),
-            Layer('inner2', Layer.oz * oz_inner),
-            Layer('bottom', Layer.oz * oz_outer)
-        ])
+        self.outline_design_rules = outline_design_rules
+        self.trace_design_rules = trace_design_rules
+        self.cost_cm2 = cost_cm2
 
 
 class Pcb(object):
-    def __init__(self, netlist, layers, net_class, cost_cm2):
+    def __init__(self, netlist, outline, attributes):
+        assert isinstance(netlist, Netlist)
+        assert isinstance(outline, Outline)
+        assert isinstance(attributes, PcbAttributes)
+
         self.netlist = netlist
-        self.layers = layers
-        self.net_class = net_class
-        self.edge_clearance = net_class.segment_clearance
-        self.cost_cm2 = cost_cm2
+        self.outline = outline
+        self.attributes = attributes
 
         for inst in self.netlist.insts:
             inst.attrs = InstAttributes(inst, self)
@@ -316,31 +228,34 @@ class Pcb(object):
         for net in self.netlist.nets:
             net.attrs = NetAttributes(net, self)
 
-    def boundary(self):
-        courtyards = []
-        for inst in self.netlist.insts:
-            courtyards.append(inst.attributes.courtyard())
-        bounds = MultiPolygon(courtyards).bounds
-        left = bounds[0] - self.edge_clearance
-        top = bounds[1] - self.edge_clearance
-        right = bounds[2] + self.edge_clearance
-        bottom = bounds[3] + self.edge_clearance
-        return left, top, right, bottom
-
     def size(self):
-        bounds = self.boundary()
+        bounds = self.outline.exterior.bounds
         width = bounds[2] - bounds[0]
         height = bounds[3] - bounds[1]
         return width, height
 
     def area(self):
-        size = self.size()
-        return size[0] * size[1]
+        return self.outline.exterior.area - self.outline.interior.area
 
     def cost(self):
-        return self.area() / 100 * self.cost_cm2
+        return self.outline.exterior.area / 100 * self.attributes.cost_cm2
 
-    def get_layer(self, name):
+    def get_layer_by_name(self, name):
         for layer in self.layers:
             if layer.name == name:
                 return layer
+
+    def to_object(self):
+        packages = {}
+        insts = {}
+        for inst in self.netlist.insts:
+            pck = inst.device.package
+            packages.update(pck.to_object())
+            insts.update(inst.attributes.to_object())
+
+        return {
+            'outline': self.outline.to_object(),
+            'layers': self.attributes.layers.to_object(),
+            'packages': packages,
+            'insts': insts,
+        }

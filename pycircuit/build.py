@@ -36,7 +36,9 @@ def string_to_filename(string):
 
 
 class Builder(object):
-    def __init__(self, circuit, design_rules=None,
+    def __init__(self, circuit,
+                 outline=None,
+                 pcb_attributes=None,
                  builddir='build',
                  compile=default_compile,
                  place=default_place,
@@ -48,6 +50,8 @@ class Builder(object):
             'hash': self.base_file_name + '.hash',
             'net_in': self.base_file_name + '.net',
             'net_out': self.base_file_name + '.out.net',
+            'pcb_in': self.base_file_name + '.pcb',
+            'pcb_out': self.base_file_name + '.out.pcb',
             'place_in': self.base_file_name + '.place',
             'place_out': self.base_file_name + '.out.place',
             'route_in': self.base_file_name + '.route',
@@ -63,7 +67,8 @@ class Builder(object):
 
         self.hashs = {}
         self.circuit = circuit
-        self.design_rules = design_rules
+        self.outline = outline
+        self.pcb_attributes = pcb_attributes
 
         self.compile_hook = compile
         self.place_hook = place
@@ -108,7 +113,7 @@ class Builder(object):
 
     def load_pcb(self, place=False, route=False):
         netlist = Netlist.from_file(self.files['net_out'])
-        pcb = Pcb(netlist, *self.design_rules())
+        pcb = Pcb(netlist, self.outline, self.pcb_attributes)
         if place:
             pcb.from_place(self.files['place_out'])
         if route:
@@ -145,6 +150,8 @@ class Builder(object):
 
     def place(self):
         pcb = self.load_pcb()
+        pcb.to_file(self.files['pcb_in'])
+
         self.step('net_out', 'place_in', lambda _, x: pcb.to_place(x))
         self.step('place_in', 'place_out', self.place_hook)
         pcb = self.load_pcb(place=True)

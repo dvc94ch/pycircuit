@@ -1,3 +1,4 @@
+import json as j
 import os
 import sys
 
@@ -7,6 +8,21 @@ def extends(klass):
         setattr(klass, func.__name__, func)
         return func
     return decorator
+
+
+def _to_json(obj):
+    return j.dumps(obj, sort_keys=True,
+                   indent=2, separators=(',', ': '))
+
+
+def _to_file(path, string):
+    with open(path, 'w+') as f:
+        f.write(string)
+
+
+def _from_file(path):
+    with open(path) as f:
+        return j.loads(f.read())
 
 
 def export(string, filename, extension):
@@ -27,5 +43,5 @@ def polygon_to_lines(coords):
         yield coords[i], coords[i + 1]
 
 
-__all__ = ['netlist', 'yosys', 'graphviz', 'spice',
-           'place', 'route', 'svg', 'kicad']
+__all__ = ['json', 'yosys', 'spice', 'kicad',
+           'place', 'route', 'graphviz', 'svg']

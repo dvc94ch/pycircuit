@@ -1,8 +1,10 @@
 import pykicad as ki
-from pycircuit.package import Package, Courtyard, Pad
-from pycircuit.pcb import Pcb, Via, Segment, InstAttributes, NetAttributes
-from pycircuit.formats import extends, polygon_to_lines
 from shapely.ops import polygonize
+from pycircuit.formats import extends, polygon_to_lines
+from pycircuit.outline import Outline
+from pycircuit.package import Package, Courtyard, Pad
+from pycircuit.pcb import Pcb, InstAttributes, NetAttributes
+from pycircuit.traces import Via, Segment
 
 
 @staticmethod
@@ -81,6 +83,18 @@ def to_kicad(self):
     return kmodule
 
 
+@extends(Outline)
+def to_kicad(self, kpcb):
+    for start, end in polygon_to_lines(list(self.exterior.exterior.coords)):
+        kline = ki.pcb.GrLine(list(start), list(end), layer='Edge.Cuts', width=0.15)
+        kpcb.lines.append(kline)
+    for feature in self.features:
+        center = [float(n) for n in feature.position]
+        end = [float(n) for n in feature.position + [feature.drill_size / 2, 0]]
+        kcircle = ki.pcb.GrCircle(list(center), list(end), layer='Edge.Cuts', width=0.15)
+        kpcb.circles.append(kcircle)
+
+
 @extends(Pcb)
 def to_kicad(self):
     kpcb = ki.pcb.Pcb(title=self.netlist.name)
@@ -115,12 +129,5 @@ def to_kicad(self):
                                drill=self.drill())
             kpcb.vias.append(kvia)
 
-    # Add a pcb outline
-    left, top, right, bottom = self.boundary()
-    outline = [(left, top), (right, top), (right, bottom), (left, bottom)]
-
-    for start, end in polygon_to_lines(outline):
-        kline = ki.pcb.Line(list(start), list(end), layer='Edge.Cuts', width=0.15)
-        kpcb.lines.append(kline)
-
+    self.outline.to_kicad(kpcb)
     return kpcb

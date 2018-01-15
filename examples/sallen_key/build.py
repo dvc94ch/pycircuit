@@ -18,5 +18,5 @@ def lp_optimize():
 
 
 if __name__ == '__main__':
-    #lp_optimize()
-    Builder(top(), oshpark_4layer).build()
+    lp_optimize()
+    #Builder(top(), oshpark_4layer).build()

@@ -1,9 +1,10 @@
-from pycircuit.formats import extends
-from pycircuit.pcb import Pcb, Segment, NetClass
-from shapely.ops import linemerge
-from shapely.geometry import Point, LineString, MultiLineString
 import itertools
 import math
+from shapely.ops import linemerge
+from shapely.geometry import Point, LineString, MultiLineString
+from pycircuit.formats import extends
+from pycircuit.pcb import Pcb
+from pycircuit.traces import Segment, NetClass
 
 grid_size = 0.05
 
@@ -12,7 +13,7 @@ def to_route(self, filename):
     #grid_size = self.net_class.segment_width + \
     #            self.net_class.segment_clearance
     width, height = self.size()
-    bounds = self.boundary()
+    bounds = self.outline.interior.bounds
     grid_width = int(width / grid_size + 1)
     grid_height = int(height / grid_size + 1)
 
@@ -50,7 +51,7 @@ def to_route(self, filename):
 
 @extends(Pcb)
 def from_route(self, filename):
-    bounds = self.boundary()
+    bounds = self.outline.interior.bounds
     with open(filename) as f:
         #grid_size = self.net_class.segment_width + \
         #            self.net_class.segment_clearance

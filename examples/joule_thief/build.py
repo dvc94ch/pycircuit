@@ -1,6 +1,7 @@
 import joule_thief
 from pycircuit.build import Builder
 from pycircuit.library.design_rules import oshpark_4layer
+from pycircuit.library.outlines import sick_of_beige
 from placer import Placer
 from router import Router
 from pykicad.pcb import Zone
@@ -34,10 +35,9 @@ def route(filein, fileout):
 
 
 def post_process(pcb, kpcb):
-    xmin, ymin, xmax, ymax = pcb.boundary()
-    coords = [(xmin, ymin), (xmin, ymax), (xmax, ymax), (xmax, ymin)]
+    coords = list(pcb.outline.interior.exterior.coords)
 
-    zone = Zone(net_name='GND', layer='F.Cu',
+    zone = Zone(net_name='gnd', layer='F.Cu',
                 polygon=coords, clearance=0.3)
 
     kpcb.zones.append(zone)
@@ -45,5 +45,6 @@ def post_process(pcb, kpcb):
 
 
 if __name__ == '__main__':
-    Builder(joule_thief.top(), oshpark_4layer,
-            place=place, post_process=post_process).build()
+    Builder(joule_thief.top(), outline=sick_of_beige('DP5031'),
+            pcb_attributes=oshpark_4layer(), place=place,
+            post_process=post_process).build()
