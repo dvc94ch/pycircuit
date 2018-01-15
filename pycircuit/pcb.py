@@ -72,7 +72,7 @@ class NetAttributes(object):
         self.net.attributes = self
         self.pcb = pcb
 
-        #self.net_class = NetClass(pcb.net_class)
+        self.net_class = NetClass(pcb.net_class)
         self.segments = []
         self.vias = []
 
@@ -221,6 +221,7 @@ class Pcb(object):
         self.netlist = netlist
         self.outline = outline
         self.attributes = attributes
+        self.net_class = attributes.trace_design_rules.to_netclass()
 
         for inst in self.netlist.insts:
             inst.attrs = InstAttributes(inst, self)

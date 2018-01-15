@@ -11,6 +11,15 @@ class TraceDesignRules(object):
         self.burried_vias_allowed = burried_vias_allowed
         self.min_edge_clearance = min_edge_clearance
 
+    def to_netclass(self):
+        return NetClass(segment_width=self.min_width,
+                        segment_clearance=self.min_clearance,
+                        via_drill=self.min_drill,
+                        via_diameter=self.min_annular_ring * 2 + self.min_drill,
+                        via_clearance=self.min_clearance,
+                        blind_vias=self.blind_vias_allowed,
+                        burried_vias=self.burried_vias_allowed)
+
 
 class NetClass(object):
 
