@@ -3,6 +3,7 @@ from z3 import *
 import math
 import uuid
 
+
 class Anchor(Enum):
     Min = 0
     Center = 1
@@ -19,11 +20,11 @@ class Box(object):
     counter = 0
     symbols = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{};:\'",./<>?|\\'
 
-    def __init__(self, uid, width, height, x_anchor=Anchor.Min, y_anchor=Anchor.Min):
+    def __init__(self, inst, width, height, x_anchor=Anchor.Min, y_anchor=Anchor.Min):
         self.symbol = Box.symbols[Box.counter % len(Box.symbols)]
         Box.counter += 1
 
-        self.uid = uid
+        self.inst = inst
         self.x = Coord(x_anchor)
         self.y = Coord(y_anchor)
         self.width = width
@@ -69,37 +70,35 @@ class Box(object):
     def area(self):
         return self.height * self.width
 
-    def to_dict(self):
-        return {
-            'uid': self.uid,
-            'x': self.x.value,
-            'y': self.y.value,
-            'width': self.width,
-            'height': self.height,
-        }
+    def place_inst(self, offset, grid_size):
+        inst_attributes = self.inst.attributes
+        x = (self.x.value + offset[0]) * grid_size
+        y = (self.y.value + offset[1]) * grid_size
+        inst_attributes.place(inst_attributes.layer, x, y)
 
     def __str__(self):
         return 'x=%s y=%s w=%s h=%s' % (self.x.value, self.y.value,
                                        self.height, self.width)
 
     @classmethod
-    def from_dict(cls, d):
-        return cls(d['uid'], d['width'], d['height'])
+    def from_inst(cls, inst):
+        return cls(inst, inst.device.package.courtyard.ipc_width,
+                   inst.device.package.courtyard.ipc_height)
 
 
 class Z3Box(Box):
 
-    def __init__(self, uuid, width, height):
-        super().__init__(uuid, width, height, Anchor.Center, Anchor.Center)
+    def __init__(self, inst, width, height):
+        super().__init__(inst, width, height, Anchor.Center, Anchor.Center)
 
         self.const_rx = int(math.ceil(width / 2))
         self.const_ry = int(math.ceil(height / 2))
 
-        self.var_x = Int('%s_x' % str(self.uid))
-        self.var_y = Int('%s_y' % str(self.uid))
-        self.var_rot = Bool('%s_rot' % str(self.uid))
-        self.var_rx = Int('%s_rx' % str(self.uid))
-        self.var_ry = Int('%s_ry' % str(self.uid))
+        self.var_x = Int('%s_x' % str(inst.uid))
+        self.var_y = Int('%s_y' % str(inst.uid))
+        self.var_rot = Bool('%s_rot' % str(inst.uid))
+        self.var_rx = Int('%s_rx' % str(inst.uid))
+        self.var_ry = Int('%s_ry' % str(inst.uid))
 
     def range_constraint(self, bin):
         return And(self.var_x >= self.var_rx,
