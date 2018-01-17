@@ -43,5 +43,4 @@ def polygon_to_lines(coords):
         yield coords[i], coords[i + 1]
 
 
-__all__ = ['json', 'yosys', 'spice', 'kicad',
-           'place', 'route', 'graphviz', 'svg']
+__all__ = ['json', 'svg', 'yosys', 'spice', 'kicad']

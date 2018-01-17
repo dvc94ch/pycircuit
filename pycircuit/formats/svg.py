@@ -1,6 +1,6 @@
 import xml.etree.cElementTree as xml
 from pycircuit.formats import extends
-from pycircuit.layers import Layer
+from pycircuit.layers import RoutingLayer
 from pycircuit.package import Package
 from pycircuit.pcb import Pcb, InstAttributes
 from pycircuit.traces import Via, Segment
@@ -67,12 +67,16 @@ class SvgElement(object):
 class SvgRoot(SvgElement):
     tag = 'svg'
 
-    def __init__(self, viewbox, attrs={}):
+    def __init__(self, viewbox, attrs={}, style=''):
         attrs['xmlns'] = 'http://www.w3.org/2000/svg'
         attrs['width'] = '100%'
         attrs['height'] = '100%'
         super().__init__(attrs)
         self.viewbox(*viewbox)
+
+        style_node = xml.Element('style')
+        style_node.text = style
+        self.element.append(style_node)
 
     def viewbox(self, left, top, right, bottom):
         return self.set_attrs({
@@ -189,13 +193,13 @@ def to_svg(self):
     ref.set_text(self.inst.name)
     package = SvgGroup('package', crtyd, pads, ref)
     package.translate(self.x, self.y).rotate(-self.angle)
-    if self.flipped:
+    if self.layer.flip:
         package.scale(1, -1)
         for text in package.find('text'):
             text.attrib['transform'] = 'scale(1, -1)'
 
     return package.set_attrs({
-        'class': 'package bottom' if self.flipped else 'package top'
+        'class': 'package bottom' if self.layer.flip else 'package top'
     })
 
 
@@ -219,10 +223,10 @@ def to_svg(self):
     })
 
 
-@extends(Layer)
+@extends(RoutingLayer)
 def to_svg(self):
     layer = SvgGroup('layer')
-    layer.add_class(self.name)
+    layer.add_class(self.layer.name)
     for via in self.vias:
         layer.append(via.to_svg())
     for seg in self.segments:
@@ -232,8 +236,10 @@ def to_svg(self):
 
 @extends(Pcb)
 def to_svg(self, path):
-    bounds = self.boundary()
-    svg = SvgRoot(bounds)
+    bounds = self.outline.polygon.exterior.bounds
+    with open('../../viewer/css/pcb.svg.css') as f:
+        style = f.read()
+    svg = SvgRoot(bounds, style=style)
 
     #graph = SvgGroup('graph')
     #for i, ij in self.rbs.graph.edges.items():
@@ -258,7 +264,7 @@ def to_svg(self, path):
     for inst in self.netlist.insts:
         svg.append(inst.attributes.to_svg())
 
-    for layer in self.layers:
+    for layer in self.attributes.layers.routing_layers:
         svg.append(layer.to_svg())
 
     svg.save(path)

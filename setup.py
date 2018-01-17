@@ -16,8 +16,7 @@ setup(
     keywords=['eda', 'cad', 'hdl', 'kicad'],
     install_requires=[
         'numpy', 'scipy', 'shapely',
-        'pykicad', 'graphviz', 'z3-solver',
-        'ngspyce'
+        'ngspyce', 'pykicad', 'z3-solver'
     ],
     tests_require=['pytest'],
     license='ISC'

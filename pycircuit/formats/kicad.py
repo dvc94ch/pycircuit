@@ -73,7 +73,7 @@ def to_kicad(package):
 @extends(InstAttributes)
 def to_kicad(self):
     kmodule = self.inst.device.package.to_kicad()
-    if self.flipped:
+    if self.layer.flip:
         kmodule.flip()
     if self.angle is not None:
         kmodule.rotate(self.angle)
@@ -85,7 +85,7 @@ def to_kicad(self):
 
 @extends(Outline)
 def to_kicad(self, kpcb):
-    for start, end in polygon_to_lines(list(self.exterior.exterior.coords)):
+    for start, end in polygon_to_lines(list(self.polygon.exterior.coords)):
         kline = ki.pcb.GrLine(list(start), list(end), layer='Edge.Cuts', width=0.15)
         kpcb.lines.append(kline)
     for feature in self.features:
