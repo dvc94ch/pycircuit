@@ -18,13 +18,11 @@ def default_compile(filein, fileout):
 
 
 def default_place(filein, fileout):
-    with open(fileout, 'w+') as f:
-        f.write('{}')
+    Pcb.from_file(filein).to_file(fileout)
 
 
 def default_route(filein, fileout):
-    with open(fileout, 'w+') as f:
-        f.write('G 10 10')
+    Pcb.from_file(filein).to_file(fileout)
 
 
 def default_post_process(pcb, kpcb):
@@ -50,12 +48,10 @@ class Builder(object):
             'hash': self.base_file_name + '.hash',
             'net_in': self.base_file_name + '.net',
             'net_out': self.base_file_name + '.out.net',
-            'pcb_in': self.base_file_name + '.pcb',
-            'pcb_out': self.base_file_name + '.out.pcb',
-            'place_in': self.base_file_name + '.place',
-            'place_out': self.base_file_name + '.out.place',
-            'route_in': self.base_file_name + '.route',
-            'route_out': self.base_file_name + '.out.route',
+            'place_in': self.base_file_name + '.place.pcb',
+            'place_out': self.base_file_name + '.place.out.pcb',
+            'route_in': self.base_file_name + '.place.out.pcb',
+            'route_out': self.base_file_name + '.route.out.pcb',
             'spice': self.base_file_name + '.sp',
             'net_yosys': self.base_file_name + '.json',
             'net_svg': self.base_file_name + '.net.svg',
@@ -112,13 +108,12 @@ class Builder(object):
         return self.file_hash(self.files[name])
 
     def load_pcb(self, place=False, route=False):
-        netlist = Netlist.from_file(self.files['net_out'])
-        pcb = Pcb(netlist, self.outline, self.pcb_attributes)
+        file_name = self.files['place_in']
         if place:
-            pcb.from_place(self.files['place_out'])
+            file_name = self.files['place_out']
         if route:
-            pcb.from_route(self.files['route_out'])
-        return pcb
+            file_name = self.files['route_out']
+        return Pcb.from_file(file_name)
 
     def step(self, input, output, call):
         if not self.stored_hash(input) == self.current_hash(input) \
@@ -149,17 +144,17 @@ class Builder(object):
         return circuit
 
     def place(self):
-        pcb = self.load_pcb()
-        pcb.to_file(self.files['pcb_in'])
+        netlist = Netlist.from_file(self.files['net_out'])
+        pcb = Pcb(netlist, self.outline, self.pcb_attributes)
 
-        self.step('net_out', 'place_in', lambda _, x: pcb.to_place(x))
+        self.step('net_out', 'place_in', lambda _, x: pcb.to_file(x))
         self.step('place_in', 'place_out', self.place_hook)
         pcb = self.load_pcb(place=True)
         self.step('place_out', 'pcb_svg', lambda _, x: pcb.to_svg(x))
 
     def route(self):
         pcb = self.load_pcb(place=True)
-        self.step('place_out', 'route_in', lambda _, x: pcb.to_route(x))
+        self.step('place_out', 'route_in', lambda _, x: pcb.to_file(x))
         self.step('route_in', 'route_out', self.route_hook)
         pcb = self.load_pcb(place=True, route=True)
         self.step('route_out', 'pcb_svg', lambda _, x: pcb.to_svg(x))

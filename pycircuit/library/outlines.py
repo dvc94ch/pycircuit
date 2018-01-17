@@ -7,8 +7,6 @@ def rectangle_with_mounting_holes(width, height, inset, hole_shift, hole_dia):
     shift_matrix = np.array([[1, 1], [-1, 1], [-1, -1], [1, -1]])
 
     exterior_coords = np.array([[0, 0], [width, 0], [width, height], [0, height]])
-    exterior = Polygon(exterior_coords)
-
     interior_coords = exterior_coords + shift_matrix * inset
     interior = Polygon(interior_coords)
 
@@ -19,7 +17,8 @@ def rectangle_with_mounting_holes(width, height, inset, hole_shift, hole_dia):
         hole_clearance = hole_dia / 2 + inset
         interior = interior.difference(Polygon(shift_matrix * hole_clearance + pos))
 
-    return Outline(exterior, interior, *holes)
+    outline = Polygon(exterior_coords, [interior.exterior.coords])
+    return Outline(outline, *holes)
 
 
 def sick_of_beige(name):

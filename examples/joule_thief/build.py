@@ -30,12 +30,12 @@ def place(filein, fileout):
 
 
 def route(filein, fileout):
-    router = Router()
+    router = Router(maxflow_enforcement_level=2)
     router.route(filein, fileout)
 
 
 def post_process(pcb, kpcb):
-    coords = list(pcb.outline.interior.exterior.coords)
+    coords = list(pcb.outline.polygon.interiors[0].coords)
 
     zone = Zone(net_name='gnd', layer='F.Cu',
                 polygon=coords, clearance=0.3)
@@ -45,6 +45,11 @@ def post_process(pcb, kpcb):
 
 
 if __name__ == '__main__':
+    pcb_attributes = oshpark_4layer()
+    # Only allow placement on top layer
+    pcb_attributes.layers.placement_layers.pop()
+
     Builder(joule_thief.top(), outline=sick_of_beige('DP5031'),
-            pcb_attributes=oshpark_4layer(), place=place,
+            pcb_attributes=pcb_attributes, place=place,
+            #route=route,
             post_process=post_process).build()

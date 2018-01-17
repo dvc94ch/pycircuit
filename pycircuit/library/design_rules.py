@@ -34,7 +34,7 @@ def oshpark_4layer():
     layers = Layers([
         Layer('silk_top', None, Materials.SilkScreen),
         Layer('finish_top', None, Materials.ENIG),
-        Layer('mask_top', 0.0254, Materials.SolderMask('purple')),
+        Layer('mask_top', 0.0254, Materials.PurpleSolderMask),
 
         Layer('top', 0.0356, Materials.Cu),
         Layer('sub_outer1', 0.1702, Materials.FR408),
@@ -46,7 +46,7 @@ def oshpark_4layer():
         Layer('sub_outer2', 0.1702, Materials.FR408),
         Layer('bottom', 0.0356, Materials.Cu),
 
-        Layer('mask_bottom', 0.0254, Materials.SolderMask('purple')),
+        Layer('mask_bottom', 0.0254, Materials.PurpleSolderMask),
         Layer('finish_bottom', None, Materials.ENIG),
         Layer('silk_bottom', None, Materials.SilkScreen),
     ])
@@ -98,13 +98,13 @@ def oshpark_2layer():
     layers = Layers([
         Layer('silk_top', None, Materials.SilkScreen),
         Layer('finish_top', None, Materials.ENIG),
-        Layer('mask_top', 0.0254, Materials.SolderMask('purple')),
+        Layer('mask_top', 0.0254, Materials.PurpleSolderMask),
 
         Layer('top', 0.0356, Materials.Cu),
         Layer('substrate', 1.5240, Materials.FR4),
         Layer('bottom', 0.0356, Materials.Cu),
 
-        Layer('mask_bottom', 0.0254, Materials.SolderMask('purple')),
+        Layer('mask_bottom', 0.0254, Materials.PurpleSolderMask),
         Layer('finish_bottom', None, Materials.ENIG),
         Layer('silk_bottom', None, Materials.SilkScreen),
     ])

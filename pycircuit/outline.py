@@ -1,3 +1,5 @@
+import numpy as np
+from shapely.geometry import mapping, shape
 from shapely.geometry.polygon import Polygon
 
 
@@ -7,6 +9,17 @@ class OutlineDesignRules(object):
         self.min_slot_width = min_slot_width
         self.min_cutout_size = min_cutout_size
 
+    def to_object(self):
+        return {
+            'min_drill_size': self.min_drill_size,
+            'min_slot_width': self.min_slot_width,
+            'min_cutout_size': self.min_cutout_size,
+        }
+
+    @classmethod
+    def from_object(cls, obj):
+        return cls(obj['min_drill_size'], obj['min_slot_width'],
+                   obj['min_cutout_size'])
 
 class OutlineDesignRuleError(Exception):
     pass
@@ -36,6 +49,11 @@ class Hole(OutlineElement):
             'y': float(self.position[1]),
         }
 
+    @classmethod
+    def from_object(cls, obj):
+        assert obj['type'] == 'hole'
+        return cls(np.array([obj['x'], obj['y']]), obj['drill_size'])
+
 
 class Slot(OutlineElement):
     def __init__(self, position, drill_size, width, angle=0):
@@ -62,6 +80,12 @@ class Slot(OutlineElement):
             'r': self.angle,
         }
 
+    @classmethod
+    def from_object(cls, obj):
+        assert obj['type'] == 'slot'
+        return cls(np.array(obj['x'], obj['y']), obj['drill_size'],
+                   obj['width'], obj['r'])
+
 
 class Cutout(OutlineElement):
     def __init__(self, polygon):
@@ -81,16 +105,19 @@ class Cutout(OutlineElement):
     def to_object(self):
         return {
             'type': 'cutout',
-            'polygon': str(self.polygon)
+            'polygon': mapping(self.polygon)
         }
+
+    @classmethod
+    def from_object(cls, obj):
+        assert obj['type'] == 'cutout'
+        return cls(shape(obj['polygon']))
 
 
 class Outline(object):
-    def __init__(self, exterior, interior, *features):
-        assert isinstance(exterior, Polygon)
-        assert isinstance(interior, Polygon)
-        self.exterior = exterior
-        self.interior = interior
+    def __init__(self, polygon, *features):
+        assert isinstance(polygon, Polygon)
+        self.polygon = polygon
         self.features = []
 
         for f in features:
@@ -106,7 +133,19 @@ class Outline(object):
 
     def to_object(self):
         return {
-            'exterior': str(self.exterior),
-            'interior': str(self.interior),
+            'polygon': mapping(self.polygon),
             'features': [f.to_object() for f in self.features]
         }
+
+    @classmethod
+    def from_object(cls, obj):
+        features = []
+        for f in obj['features']:
+            if f['type'] == 'hole':
+                features.append(Hole.from_object(f))
+            elif f['type'] == 'slot':
+                features.append(Slot.from_object(f))
+            elif f['type'] == 'cutout':
+                features.append(Cutout.from_object(f))
+
+        return cls(shape(obj['polygon']), *features)

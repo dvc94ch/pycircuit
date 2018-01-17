@@ -1,10 +1,11 @@
 import numpy as np
 import shapely.ops as ops
-from shapely.geometry import *
+from shapely.geometry import Point, Polygon
 from pycircuit.circuit import Netlist
 from pycircuit.device import Device
-from pycircuit.outline import Outline
-from pycircuit.traces import NetClass
+from pycircuit.outline import Outline, OutlineDesignRules
+from pycircuit.layers import Layers
+from pycircuit.traces import NetClass, TraceDesignRules
 
 
 class Matrix(object):
@@ -52,6 +53,14 @@ class Matrix(object):
 
         return ops.transform(apply_matrix, geometry)
 
+    @staticmethod
+    def inst_matrix(x, y, angle, flip):
+        if flip:
+            flip = Matrix.flip()
+        else:
+            flip = np.identity(3)
+
+        return Matrix.translation(x, y).dot(Matrix.rotation(angle)).dot(flip)
 
 
 
@@ -120,84 +129,45 @@ class InstAttributes(object):
         self.inst.attributes = self
         self.pcb = pcb
 
+        self.layer = pcb.attributes.layers.placement_layers[0]
         self.x = 0
         self.y = 0
         self.angle = 0
-        self.flipped = False
         self.matrix = None
 
-    def get_matrix(self):
-        '''Returns the pad and courtyard transformation matrix.'''
-
-        transform = np.identity(3)
-        if self.flipped:
-            transform = Matrix.flip()
-        transform = Matrix.rotation(self.angle).dot(transform)
-        return Matrix.translation(self.x, self.y).dot(transform)
-
     def iter_pads(self):
-        matrix = self.get_matrix()
         for pad in self.inst.device.package.pads:
-            yield AbsolutePad(self.inst, pad, matrix)
+            yield AbsolutePad(self.inst, pad, self.matrix)
 
     def pad_by_name(self, name):
-        matrix = self.get_matrix()
         pad = self.inst.device.package.pad_by_name(name)
-        return AbsolutePad(self.inst, pad, matrix)
+        return AbsolutePad(self.inst, pad, self.matrix)
 
     def pads_by_pin(self, pin):
-        matrix = self.get_matrix()
         for pad in self.inst.device.pads_by_pin(pin):
-            yield AbsolutePad(self.inst, pad, matrix)
+            yield AbsolutePad(self.inst, pad, self.matrix)
 
     def courtyard(self):
-        matrix = self.get_matrix()
         crtyd = self.inst.device.package.courtyard.polygon
-        return Matrix.transform(crtyd, matrix)
+        return Matrix.transform(crtyd, self.matrix)
 
-    def place(self, x, y, angle=0, flipped=False):
+    def place(self, layer, x, y, angle=0):
         '''Places the node.'''
 
-        self.flip(flipped)
-        self.rotate(angle)
-        self.move(x, y)
-
-    def move(self, x=None, y=None, dx=0, dy=0):
-        '''Places the node at (x + dx, y + dy) or if x, y are None moves it
-        by (dx, dy).  Invalidates the transformation matrix.'''
-
-        if x is not None:
-            self.x = x
-        if y is not None:
-            self.y = y
-        self.x += dx
-        self.y += dy
-
-    def rotate(self, angle):
-        '''Rotates the node by angle.  Invalidates the transformation matrix.'''
-
-        self.angle += angle
-
-    def flip(self, flipped=None):
-        '''Flips the node across the y-axis.  Takes an optional flipped argument
-        that sets the state explicitly.  Invalidates the transformation
-        matrix.'''
-
-        if isinstance(flipped, bool):
-            self.flipped = flipped
-        else:
-            self.flipped = not self.flipped
+        self.layer = layer
+        self.angle = angle
+        self.x = x
+        self.y = y
+        self.matrix = Matrix.inst_matrix(x, y, angle, layer.flip)
 
     def to_object(self):
-        top = self.pcb.attributes.layers.top
-        bottom = self.pcb.attributes.layers.bottom
         return {
             self.inst.name: {
                 'x': self.x,
                 'y': self.y,
                 'angle': self.angle,
-                'flipped': self.flipped,
-                'layer': bottom.name if self.flipped else top.name,
+                'flip': self.layer.flip,
+                'layer': self.layer.layer.name,
                 'package': self.inst.device.package.name,
             }
         }
@@ -210,6 +180,21 @@ class PcbAttributes(object):
         self.outline_design_rules = outline_design_rules
         self.trace_design_rules = trace_design_rules
         self.cost_cm2 = cost_cm2
+
+    def to_object(self):
+        return {
+            'layers': self.layers.to_object(),
+            'outline_design_rules': self.outline_design_rules.to_object(),
+            'trace_design_rules': self.trace_design_rules.to_object(),
+            'cost_cm2': self.cost_cm2,
+        }
+
+    @classmethod
+    def from_object(cls, obj):
+        return cls(Layers.from_object(obj['layers']),
+                   OutlineDesignRules.from_object(obj['outline_design_rules']),
+                   TraceDesignRules.from_object(obj['trace_design_rules']),
+                   obj['cost_cm2'])
 
 
 class Pcb(object):
@@ -230,21 +215,16 @@ class Pcb(object):
             net.attrs = NetAttributes(net, self)
 
     def size(self):
-        bounds = self.outline.exterior.bounds
+        bounds = self.outline.polygon.exterior.bounds
         width = bounds[2] - bounds[0]
         height = bounds[3] - bounds[1]
         return width, height
 
     def area(self):
-        return self.outline.exterior.area - self.outline.interior.area
+        return self.outline.polygon.exterior.area
 
     def cost(self):
-        return self.outline.exterior.area / 100 * self.attributes.cost_cm2
-
-    def get_layer_by_name(self, name):
-        for layer in self.layers:
-            if layer.name == name:
-                return layer
+        return self.outline.polygon.exterior.area / 100 * self.attributes.cost_cm2
 
     def to_object(self):
         packages = {}
@@ -255,8 +235,26 @@ class Pcb(object):
             insts.update(inst.attributes.to_object())
 
         return {
+            'netlist': self.netlist.to_object(),
             'outline': self.outline.to_object(),
-            'layers': self.attributes.layers.to_object(),
+            'attributes': self.attributes.to_object(),
             'packages': packages,
             'insts': insts,
         }
+
+    @classmethod
+    def from_object(cls, obj):
+        pcb = cls(Netlist.from_object(obj['netlist']),
+                  Outline.from_object(obj['outline']),
+                  PcbAttributes.from_object(obj['attributes']))
+
+        for inst in pcb.netlist.insts:
+            inst_obj = obj['insts'][inst.name]
+            players = pcb.attributes.layers.placement_layers
+            for player in players:
+                if player.layer.name == inst_obj['layer']:
+                    break
+            inst.attributes.place(player, inst_obj['x'], inst_obj['y'],
+                                  inst_obj['angle'])
+
+        return pcb
