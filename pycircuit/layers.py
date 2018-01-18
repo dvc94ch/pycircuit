@@ -177,7 +177,7 @@ class PlacementLayer(object):
     def __init__(self, layer, flip=False):
         self.layer = layer
         self.flip = flip
-        self.packages = []
+        self.insts = []
 
 
 class Layers(object):

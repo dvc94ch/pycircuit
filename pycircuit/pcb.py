@@ -159,6 +159,7 @@ class InstAttributes(object):
         self.x = x
         self.y = y
         self.matrix = Matrix.inst_matrix(x, y, angle, layer.flip)
+        layer.insts.append(self.inst)
 
     def to_object(self):
         return {
