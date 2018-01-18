@@ -26,4 +26,4 @@ for a, b, c in itertools.permutations('GSD'):
            Map('3', c),
            Map(None, 'SUBSTRATE'))
 
-Device('TP', 'TP', 'PAD', Map('1', 'TP'))
+Device('TP', 'TP', 'Pins_1x1', Map('A1', 'TP'))

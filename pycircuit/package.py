@@ -118,16 +118,17 @@ class QuadPads(object):
 
 
 class GridPads(object):
-    def __init__(self, num, pitch):
-        self.num = num
+    def __init__(self, width, length, pitch):
+        self.width = width
+        self.length = length
         self.pitch = pitch
 
     def __iter__(self):
-        grid_radius = (self.num - 1) * self.pitch / 2
+        grid_radius = (self.width - 1) * self.pitch / 2
         prefix = GridPads.default_prefix_generator()
-        for row in range(self.num):
-            radius = row * self.pitch - grid_radius
-            for pad in PadArray(self.num, self.pitch, radius, 0,
+        for col in range(self.width):
+            radius = col * self.pitch - grid_radius
+            for pad in PadArray(self.length, self.pitch, radius, 0,
                                 prefix=next(prefix)):
                 yield pad
 
@@ -145,11 +146,12 @@ class GridPads(object):
 
 
 class StaggeredGridPads(object):
-    def __init__(self, num, pitch):
+    def __init__(self, width, length, pitch):
         assert num % 2 == 1
-        self.num = num
+        self.width = width
+        self.length = length
         self.pitch = pitch
-        self.grid = GridPads(num, pitch)
+        self.grid = GridPads(width, length, pitch)
 
     def __iter__(self):
         for i, pad in enumerate(self.grid):
@@ -159,12 +161,13 @@ class StaggeredGridPads(object):
 
 
 class PerimeterPads(object):
-    def __init__(self, num, pitch, perimeter, inner=0):
-        self.num = num
+    def __init__(self, width, length, pitch, perimeter, inner=0):
+        self.width = width
+        self.length = length
         self.pitch = pitch
         self.perimeter = perimeter
         self.inner = inner
-        self.grid = GridPads(num, pitch)
+        self.grid = GridPads(width, length, pitch)
 
     def __iter__(self):
         pad_iter = iter(self.grid)

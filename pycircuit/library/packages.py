@@ -3,8 +3,13 @@ from pycircuit.package import *
 
 
 ### Basic
-Package('PAD', IPCGrid(1, 1), PadArray(1),
-        package_size=(0, 0), pad_size=(1, 1))
+for width in [1, 2]:
+    for length in range(1, 20):
+        t_length, t_width = 2.41 + (length - 1) * 2.54, 2.41
+        Package('Pins_%dx%d' % (length, width), RectCrtyd(t_length, t_width),
+                GridPads(width, length, pitch=2.54),
+                package_size=(t_length, t_width),
+                pad_size=(2.41, 2.41), pad_drill=.51, pad_shape='circle')
 
 Package('0805', IPCGrid(4, 8), TwoPads(1.9),
         package_size=(1.4, 2.15), pad_size=(1.5, 1.3))
@@ -35,5 +40,5 @@ Package('TQFP144', RectCrtyd(20, 20), QuadPads(144, pitch=0.5, radius=10)) # FIX
 
 
 ### BGA
-Package('PBGA16_8x8', RectCrtyd(8, 8), GridPads(4, pitch=1.5),
+Package('PBGA16_8x8', RectCrtyd(8, 8), GridPads(4, 4, pitch=1.5),
         package_size=(8, 8), pad_size=(.6, .6), pad_shape='circle')
