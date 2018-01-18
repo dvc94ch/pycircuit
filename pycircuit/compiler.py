@@ -218,15 +218,6 @@ class Compiler(object):
         for i, assign in enumerate(path.assigns[0:-1]):
             check_assign(assign, path.assigns[i + 1])
 
-        #print(repr(path))
-
-        # Join nets through ports
-        for assign in path.assigns:
-            if isinstance(assign, PortAssign) and len(assign.port.assigns) == 2:
-                assign.port.external.net.assigns += assign.port.internal.net.assigns
-                for net_assign in assign.port.external.net.assigns:
-                    net_assign.net = assign.port.external.net
-
     @staticmethod
     def port_swap(direction, assign1, assign2):
         def swap(assign1, assign2):
@@ -281,8 +272,27 @@ class Compiler(object):
 
             paths.append(path)
 
-        # Remove unneeded ports
-        circuit.ports = list(circuit.external_ports())
+        # Remove unneeded ports and nets
+        ports = []
+        for port in circuit.iter_ports():
+            if port.is_external():
+                ports.append(port)
+            else:
+                assigns = []
+                for assign in port.internal.net.assigns:
+                    if isinstance(assign, PortAssign) and assign.port == port:
+                        continue
+                    assigns.append(assign)
+                for assign in port.external.net.assigns:
+                    if isinstance(assign, PortAssign) and assign.port == port:
+                        continue
+                    assigns.append(assign)
+                for assign in assigns:
+                    assign.net = port.external.net
+                port.external.net.assigns = assigns
+                port.internal.net.assigns = []
+        circuit.ports = ports
+        circuit.nets = list(circuit.assigned_nets())
 
         circuit.to_file(net_out)
         return circuit

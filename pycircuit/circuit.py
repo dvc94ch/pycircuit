@@ -485,6 +485,11 @@ class Circuit(Netlist):
             for net in subinst.circuit.nets:
                 yield net
 
+    def assigned_nets(self):
+        for net in self.iter_nets():
+            if len(net.assigns) > 0:
+                yield net
+
     def iter_ports(self):
         for port in self.ports:
             yield port
