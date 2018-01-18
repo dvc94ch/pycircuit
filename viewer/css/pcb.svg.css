@@ -2,34 +2,27 @@ text {
     font-family: 'Verdana';
 }
 
-.graph line, .grid line {
+.outline {
+    fill-opacity: 0;
     stroke: black;
-    stroke-width: 0.02;
+    stroke-width: 0.05;
 }
 
-.package .crtyd {
+.crtyd {
     stroke: black;
     stroke-width: 0.05;
     fill-opacity: 0;
 }
 
-.package .pad {
+.pad {
     fill-opacity: 0.5;
 }
 
-.package.top .pad {
-    fill: red;
-}
-
-.package.bottom .pad {
-    fill: green;
-}
-
-.package text {
+.ref {
     font-size: 0.8px;
 }
 
-.package .pad-group text {
+.pad-label {
     font-size: 0.4px;
     fill: white;
 }
@@ -46,23 +39,40 @@ text {
     fill: white;
 }
 
-.layer line {
+.seg {
     stroke-linecap: round;
     stroke-opacity: 0.5;
 }
 
-.layer.top line {
+/* Color segments and pads */
+.layer.top .pad {
+    fill: red;
+}
+
+.layer.top .seg {
     stroke: red;
 }
 
-.layer.inner1 line {
+.layer.inner1 .pad {
+    fill: blue;
+}
+
+.layer.inner1 .seg {
     stroke: blue;
 }
 
-.layer.inner2 line {
+.layer.inner2 .pad {
+    fill: purple;
+}
+
+.layer.inner2 .seg {
     stroke: purple;
 }
 
-.layer.bottom line {
+.layer.bottom .pad {
+    fill: green;
+}
+
+.layer.bottom .seg {
     stroke: green;
 }
