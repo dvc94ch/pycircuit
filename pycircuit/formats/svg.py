@@ -1,9 +1,9 @@
 import xml.etree.cElementTree as xml
 from pycircuit.formats import extends
-from pycircuit.layers import RoutingLayer
+from pycircuit.layers import RoutingLayer, PlacementLayer
 from pycircuit.package import Package
-from pycircuit.pcb import Pcb, InstAttributes
-from pycircuit.traces import Via, Segment
+from pycircuit.outline import *
+from pycircuit.pcb import Pcb
 
 
 class SvgElement(object):
@@ -165,72 +165,105 @@ def to_svg(self):
 
     # Pads
     svg_pads = SvgGroup('pads')
+    svg_pad_labels = SvgGroup('pad-labels')
+
     for pad in self.pads:
         if pad.shape == 'rect':
-            svg_pad = SvgRect(pad.size).rotate(-pad.angle)
+            svg_pad = SvgRect(pad.size)
         elif pad.shape == 'circle':
-            svg_pad = SvgCircle(pad.size[0])
+            svg_pad = SvgCircle(pad.size[0] / 2)
+        else:
+            raise Exception('Unknown pad shape')
 
         svg_pad.set_attrs({'class': 'pad'})
-        svg_label = SvgText(pad.name, {'dy': '.4em'})
-        svg_pad_group = SvgGroup('pad-group', svg_pad, svg_label) \
-                                 .translate(*pad.location[0:2])
+        svg_pad.translate(*pad.location[0:2]).rotate(-pad.angle)
+        svg_pads.append(svg_pad)
 
-        svg_pads.append(svg_pad_group)
+        svg_label = SvgText(pad.name, {'dy': '.4em'})
+        svg_label.set_attrs({'class': 'pad-label'})
+        svg_label.translate(*pad.location[0:2])
+        svg_pad_labels.append(svg_label)
 
     # Reference
     text_radius = self.size()[1] / 2
-    svg_ref = SvgText(self.name, {'y': -text_radius - 0.2})
+    svg_ref = SvgText(self.name, {'class': 'ref', 'y': -text_radius - 0.2})
 
     return SvgRoot(self.courtyard.bounds) \
-        .append(svg_crtyd, svg_pads, svg_ref)
+        .append(svg_crtyd, svg_pads, svg_pad_labels, svg_ref)
 
 
-@extends(InstAttributes)
+@extends(PlacementLayer)
 def to_svg(self):
-    package = self.inst.device.package.to_svg()
-    crtyd, pads, ref = package.children
-    ref.set_text(self.inst.name)
-    package = SvgGroup('package', crtyd, pads, ref)
-    package.translate(self.x, self.y).rotate(-self.angle)
-    if self.layer.flip:
-        package.scale(1, -1)
-        for text in package.find('text'):
-            text.attrib['transform'] = 'scale(1, -1)'
+    def transform(elem, x, y, angle, no_flip=False):
+        elem.translate(x, y).rotate(-angle)
+        if not no_flip and self.flip:
+            elem.scale(1, -1)
+        return elem
 
-    return package.set_attrs({
-        'class': 'package bottom' if self.layer.flip else 'package top'
-    })
+    pads_layer = SvgGroup('pads_layer')
+    pad_labels_layer = SvgGroup('pad_labels_layer')
+    crtyd_layer = SvgGroup('crtyd_layer')
+    ref_layer = SvgGroup('ref_layer')
 
+    for inst in self.insts:
+        package = inst.device.package.to_svg()
+        crtyd, pads, pad_labels, ref = package.children
+        ref.set_text(inst.name)
 
-@extends(Via)
-def to_svg(self):
-    return SvgGroup('via',
-        SvgCircle(self.diameter() / 2, {
-            'class': 'dia'
-        }),
-        SvgCircle(self.drill() / 2, {
-            'class': 'drill'
-        })
-    ).translate(self.coord[0], self.coord[1])
+        x, y, angle = inst.attributes.x, inst.attributes.y, inst.attributes.angle
 
+        pads_layer.append(transform(pads, x, y, angle))
+        crtyd_layer.append(transform(crtyd, x, y, angle))
+        ref_layer.append(transform(ref, x, y, angle, no_flip=True))
+        pad_labels_layer.append(transform(pad_labels, x, y, angle, no_flip=True))
 
-@extends(Segment)
-def to_svg(self):
-    return SvgLine(self.start, self.end, {
-        'class': 'segment',
-        'stroke-width': self.width()
-    })
+    layer = SvgGroup('layer')
+    layer.add_class(self.layer.name)
+    layer.append(pads_layer)
+    layer.append(pad_labels_layer)
+    layer.append(crtyd_layer)
+    layer.append(ref_layer)
+
+    return layer
 
 
 @extends(RoutingLayer)
 def to_svg(self):
     layer = SvgGroup('layer')
     layer.add_class(self.layer.name)
+
     for via in self.vias:
-        layer.append(via.to_svg())
+        svia = SvgGroup('via',
+                        SvgCircle(self.diameter() / 2, {
+                            'class': 'dia'
+                        }),
+                        SvgCircle(self.drill() / 2, {
+                            'class': 'drill'
+                        })
+        ).translate(via.coord[0], via.coord[1])
+        layer.append(svia)
+
     for seg in self.segments:
-        layer.append(seg.to_svg())
+        sseg = SvgLine(self.start, self.end, {
+            'class': 'seg',
+            'stroke-width': self.width()
+        })
+        layer.append(sseg)
+
+    return layer
+
+
+@extends(Outline)
+def to_svg(self):
+    layer = SvgGroup('outline')
+    layer.append(SvgPath().set_coords(self.polygon.exterior.coords))
+    for f in self.features:
+        if isinstance(f, Hole):
+            f = SvgCircle(f.drill_size / 2, {
+                'cx': f.position[0],
+                'cy': f.position[1]
+            })
+        layer.append(f)
     return layer
 
 
@@ -241,30 +274,16 @@ def to_svg(self, path):
         style = f.read()
     svg = SvgRoot(bounds, style=style)
 
-    #graph = SvgGroup('graph')
-    #for i, ij in self.rbs.graph.edges.items():
-    #    for j in ij:
-    #        n1, n2 = self.rbs.features[i], self.rbs.features[j]
+    top = self.attributes.layers.placement_layers[0]
+    bottom = self.attributes.layers.placement_layers[-1]
 
-    #        graph.append(SvgLine((n1.x, n1.y), (n2.x, n2.y)))
-    #svg.append(graph)
+    svg.append(bottom.to_svg())
 
-    #grid = SvgGroup('grid')
-    #grid_size = 0.05
-    #grid_width = int(self.width / grid_size + 1)
-    #grid_height = int(self.height / grid_size + 1)
-    #for ix in range(grid_width):
-    #    x = ix * grid_size + bounds[0]
-    #    grid.append(SvgLine((x, bounds[1]), (x, bounds[3])))
-    #for iy in range(grid_height):
-    #    y = iy * grid_size + bounds[1]
-    #    grid.append(SvgLine((bounds[0], y), (bounds[2], y)))
-    #svg.append(grid)
-
-    for inst in self.netlist.insts:
-        svg.append(inst.attributes.to_svg())
-
-    for layer in self.attributes.layers.routing_layers:
+    for layer in reversed(self.attributes.layers.routing_layers):
         svg.append(layer.to_svg())
+
+    svg.append(top.to_svg())
+
+    svg.append(self.outline.to_svg())
 
     svg.save(path)
