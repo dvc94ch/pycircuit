@@ -135,8 +135,7 @@ class Router(object):
                 for i, coord in enumerate(seg[1:]):
                     start = grid_to_pos(*seg[i])
                     end = grid_to_pos(*coord)
-                    Segment(net, pcb.net_class, start, end,
-                            pcb.attributes.layers.routing_layers[0])
+                    Segment(net, start, end, pcb.attributes.layers.routing_layers[0])
 
         pcb.to_file(fileout)
 

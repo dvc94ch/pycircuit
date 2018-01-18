@@ -1,3 +1,6 @@
+from pycircuit.circuit import UID
+
+
 class TraceDesignRules(object):
     def __init__(self, min_width, min_clearance,
                  min_annular_ring, min_drill,
@@ -46,8 +49,11 @@ class NetClass(object):
     def __init__(self, net_class=None, segment_width=None,
                  segment_clearance=None, via_diameter=None,
                  via_drill=None, via_clearance=None,
-                 blind_vias=True, burried_vias=True,
-                 length_match=False):
+                 blind_vias=None, burried_vias=None,
+                 length_match=None, uid=None):
+        self.uid = uid
+        if uid is None:
+            self.uid = UID.uid()
         self.parent = net_class
         self._segment_width = segment_width
         self._segment_clearance = segment_clearance
@@ -63,11 +69,36 @@ class NetClass(object):
             return getattr(self.parent, attr)
         return value
 
+    def to_object(self):
+        obj = { 'uid': self.uid }
+        if self.parent is not None:
+            obj['net_class'] = self.parent.uid
+        if self._segment_width is not None:
+            obj['segment_width'] = self._segment_width
+        if self._segment_clearance is not None:
+            obj['segment_clearance'] = self._segment_clearance
+        if self._via_diameter is not None:
+            obj['via_diameter'] = self._via_diameter
+        if self._via_drill is not None:
+            obj['via_drill'] = self._via_drill
+        if self._via_clearance is not None:
+            obj['via_clearance'] = self._via_clearance
+        if self._blind_vias is not None:
+            obj['blind_vias'] = self._blind_vias
+        if self._burried_vias is not None:
+            obj['burried_vias'] = self._burried_vias
+        return obj
+
+    @classmethod
+    def from_object(cls, obj, pcb):
+        if 'net_class' in obj:
+            obj['net_class'] = pcb.net_class_by_uid(obj['net_class'])
+        return cls(**obj)
+
 
 class Segment(object):
-    def __init__(self, net, net_class, start, end, routable_layer):
+    def __init__(self, net, start, end, routable_layer):
         self.net = net
-        self.net_class = net_class
 
         self.start = start
         self.end = end
@@ -78,7 +109,7 @@ class Segment(object):
 
     def __getattr__(self, attr):
         if attr == 'width':
-            return self.net_class.segment_width
+            return self.net.attributes.net_class.segment_width
         elif attr == 'length':
             return Point(self.start[0:2]).distance(Point(self.end[0:2]))
 
@@ -91,16 +122,26 @@ class Segment(object):
             raise TraceDesignRuleError('Trace width needs to be larger than %d'
                                        % design_rules.min_width)
 
+    def to_object(self):
+        return {
+            'net': self.net.uid,
+            'start': self.start,
+            'end': self.end,
+            'layer': self.layer.layer.name,
+        }
+
+    @classmethod
+    def from_object(cls, obj, pcb):
+        net = pcb.netlist.net_by_uid(obj['net'])
+        rlayer = pcb.attributes.layers.rlayer_by_name(obj['layer'])
+        return cls(net, obj['start'], obj['end'], rlayer)
+
 
 class Via(object):
-    def __init__(self, net, net_class, position, routable_layers):
-        self.parent = None
+    def __init__(self, net, position, routable_layers):
         self.net = net
-        self.net_class = net_class
 
         self.position = position
-        self.start_layer = start_layer
-        self.end_layer = end_layer
 
         self.is_blind = False
         self.is_burried = False
@@ -111,9 +152,9 @@ class Via(object):
 
     def __getattr__(self, attr):
         if attr == 'drill':
-            return self.net_class.via_drill
+            return self.net.attributes.net_class.via_drill
         elif attr == 'diameter':
-            return self.net_class.via_diameter
+            return self.net.attributes.net_class.via_diameter
 
     def iter_layers(self):
         for layer in self.layers:
@@ -132,3 +173,19 @@ class Via(object):
             raise TraceDesignRuleError('No blind vias allowed')
         if self.is_burried and not design_rules.burried_vias_allowed:
             raise TraceDesignRuleError('No burried vias allowed')
+
+    def to_object(self):
+        return {
+            'net': self.net.uid,
+            'x': float(self.position[0]),
+            'y': float(self.position[1]),
+            'layers': [layer.layer.name for layer in self.layers],
+        }
+
+    @classmethod
+    def from_object(cls, obj, pcb):
+        net = pcb.netlist.net_by_uid(obj['net'])
+        net_class = pcb.net_class_by_uid(obj['net_class'])
+        layers = [pcb.attributes.layers.rlayer_by_name(name)
+                  for layer in obj['layers']]
+        return cls(net, net_class, np.array(obj['x'], obj['y']), rlayers)

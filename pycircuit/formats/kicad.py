@@ -115,10 +115,10 @@ def to_kicad(self):
                 .connect(abspad.pad.name, knet)
 
         for seg in net.attributes.segments:
-            layer = 'F.Cu' if seg.layer.name == 'top' else 'B.Cu'
+            layer = 'F.Cu' if seg.layer.layer.name == 'top' else 'B.Cu'
             kseg = ki.pcb.Segment(start=list(seg.start)[0:2],
                                   end=list(seg.end)[0:2],
-                                  net=knet_code, width=seg.width(),
+                                  net=knet_code, width=seg.width,
                                   layer=layer)
             kpcb.segments.append(kseg)
 

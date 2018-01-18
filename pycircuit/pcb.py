@@ -5,7 +5,7 @@ from pycircuit.circuit import Netlist
 from pycircuit.device import Device
 from pycircuit.outline import Outline, OutlineDesignRules
 from pycircuit.layers import Layers
-from pycircuit.traces import NetClass, TraceDesignRules
+from pycircuit.traces import NetClass, TraceDesignRules, Segment, Via
 
 
 class Matrix(object):
@@ -76,12 +76,12 @@ class AbsolutePad(object):
 
 
 class NetAttributes(object):
-    def __init__(self, net, pcb):
+    def __init__(self, net, net_class, pcb):
         self.net = net
         self.net.attributes = self
         self.pcb = pcb
 
-        self.net_class = NetClass(pcb.net_class)
+        self.net_class = net_class
         self.segments = []
         self.vias = []
 
@@ -119,6 +119,25 @@ class NetAttributes(object):
         for segment in self.segments:
             length += segment.length()
         return length
+
+    def to_object(self):
+        return {
+            self.net.name: {
+                'net_class': self.net_class.uid,
+                'segments': [seg.to_object() for seg in self.segments],
+                'vias': [via.to_object() for via in self.vias],
+            }
+        }
+
+    @classmethod
+    def from_object(cls, obj, net, pcb):
+        net_class = pcb.net_class_by_uid(obj['net_class'])
+        attrs = cls(net, net_class, pcb)
+        for seg in obj['segments']:
+            Segment.from_object(seg, pcb)
+        for via in obj['vias']:
+            Via.from_object(via, pcb)
+        return attrs
 
 
 class InstAttributes(object):
@@ -173,6 +192,13 @@ class InstAttributes(object):
             }
         }
 
+    @classmethod
+    def from_object(cls, obj, inst, pcb):
+        attrs = cls(inst, pcb)
+        player = pcb.attributes.layers.player_by_name(obj['layer'])
+        attrs.place(player, obj['x'], obj['y'], obj['angle'])
+        return attrs
+
 
 class PcbAttributes(object):
     def __init__(self, layers, outline_design_rules, trace_design_rules,
@@ -199,7 +225,7 @@ class PcbAttributes(object):
 
 
 class Pcb(object):
-    def __init__(self, netlist, outline, attributes):
+    def __init__(self, netlist, outline, attributes, _init=True):
         assert isinstance(netlist, Netlist)
         assert isinstance(outline, Outline)
         assert isinstance(attributes, PcbAttributes)
@@ -207,13 +233,21 @@ class Pcb(object):
         self.netlist = netlist
         self.outline = outline
         self.attributes = attributes
-        self.net_class = attributes.trace_design_rules.to_netclass()
+        self.net_classes = [attributes.trace_design_rules.to_netclass()]
 
-        for inst in self.netlist.insts:
-            inst.attrs = InstAttributes(inst, self)
+        if _init:
+            for inst in self.netlist.insts:
+                InstAttributes(inst, self)
 
-        for net in self.netlist.nets:
-            net.attrs = NetAttributes(net, self)
+            for net in self.netlist.nets:
+                nc = NetClass(self.net_classes[0])
+                self.net_classes.append(nc)
+                NetAttributes(net, nc, self)
+
+    def net_class_by_uid(self, uid):
+        for nc in self.net_classes:
+            if nc.uid == uid:
+                return nc
 
     def size(self):
         bounds = self.outline.polygon.exterior.bounds
@@ -230,10 +264,13 @@ class Pcb(object):
     def to_object(self):
         packages = {}
         insts = {}
+        nets = {}
         for inst in self.netlist.insts:
             pck = inst.device.package
             packages.update(pck.to_object())
             insts.update(inst.attributes.to_object())
+        for net in self.netlist.nets:
+            nets.update(net.attributes.to_object())
 
         return {
             'netlist': self.netlist.to_object(),
@@ -241,21 +278,26 @@ class Pcb(object):
             'attributes': self.attributes.to_object(),
             'packages': packages,
             'insts': insts,
+            'nets': nets,
+            'net_classes': [nc.to_object() for nc in self.net_classes],
         }
 
     @classmethod
     def from_object(cls, obj):
         pcb = cls(Netlist.from_object(obj['netlist']),
                   Outline.from_object(obj['outline']),
-                  PcbAttributes.from_object(obj['attributes']))
+                  PcbAttributes.from_object(obj['attributes']),
+                  _init=False)
+
+        for nc in obj['net_classes']:
+            pcb.net_classes.append(NetClass.from_object(nc, pcb))
 
         for inst in pcb.netlist.insts:
             inst_obj = obj['insts'][inst.name]
-            players = pcb.attributes.layers.placement_layers
-            for player in players:
-                if player.layer.name == inst_obj['layer']:
-                    break
-            inst.attributes.place(player, inst_obj['x'], inst_obj['y'],
-                                  inst_obj['angle'])
+            InstAttributes.from_object(inst_obj, inst, pcb)
+
+        for net in pcb.netlist.nets:
+            net_obj = obj['nets'][net.name]
+            NetAttributes.from_object(net_obj, net, pcb)
 
         return pcb

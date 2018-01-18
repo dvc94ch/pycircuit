@@ -234,19 +234,19 @@ def to_svg(self):
 
     for via in self.vias:
         svia = SvgGroup('via',
-                        SvgCircle(self.diameter() / 2, {
+                        SvgCircle(via.diameter / 2, {
                             'class': 'dia'
                         }),
-                        SvgCircle(self.drill() / 2, {
+                        SvgCircle(via.drill / 2, {
                             'class': 'drill'
                         })
         ).translate(via.coord[0], via.coord[1])
         layer.append(svia)
 
     for seg in self.segments:
-        sseg = SvgLine(self.start, self.end, {
+        sseg = SvgLine(seg.start, seg.end, {
             'class': 'seg',
-            'stroke-width': self.width()
+            'stroke-width': seg.width
         })
         layer.append(sseg)
 

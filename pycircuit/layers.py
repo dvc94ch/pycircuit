@@ -203,6 +203,21 @@ class Layers(object):
     def __iter__(self):
         return iter(self.layers)
 
+    def layer_by_name(self, name):
+        for layer in self.layers:
+            if layer.name == name:
+                return layer
+
+    def player_by_name(self, name):
+        for player in self.placement_layers:
+            if player.layer.name == name:
+                return player
+
+    def rlayer_by_name(self, name):
+        for rlayer in self.routing_layers:
+            if rlayer.layer.name == name:
+                return rlayer
+
     def iter_conductive(self):
         for layer in self.layers:
             if layer.material.is_conductor:
