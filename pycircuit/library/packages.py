@@ -3,8 +3,8 @@ from pycircuit.package import *
 
 
 ### Basic
-for width in [1, 2]:
-    for length in range(1, 20):
+for width in range(1, 3):
+    for length in range(1, 21):
         t_length, t_width = 2.41 + (length - 1) * 2.54, 2.41
         Package('Pins_%dx%d' % (length, width), RectCrtyd(t_length, t_width),
                 GridPads(width, length, pitch=2.54),

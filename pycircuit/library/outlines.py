@@ -3,7 +3,7 @@ from shapely.geometry.polygon import Polygon
 from pycircuit.outline import Hole, Outline
 
 
-def rectangle_with_mounting_holes(width, height, inset, hole_shift, hole_dia):
+def rectangle_with_mounting_holes(width, height, inset, hole_shift, hole_drill):
     shift_matrix = np.array([[1, 1], [-1, 1], [-1, -1], [1, -1]])
 
     exterior_coords = np.array([[0, 0], [width, 0], [width, height], [0, height]])
@@ -13,8 +13,8 @@ def rectangle_with_mounting_holes(width, height, inset, hole_shift, hole_dia):
     hole_coords = exterior_coords + shift_matrix * hole_shift
     holes = []
     for pos in hole_coords:
-        holes.append(Hole(pos, hole_dia))
-        hole_clearance = hole_dia / 2 + inset
+        holes.append(Hole(pos, hole_drill))
+        hole_clearance = hole_drill / 2 + inset
         interior = interior.difference(Polygon(shift_matrix * hole_clearance + pos))
 
     outline = Polygon(exterior_coords, [interior.exterior.coords])
