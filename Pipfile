@@ -8,9 +8,8 @@ name = "pypi"
 [packages]
 
 numpy = "*"
-shapely = "*"
-"z3-solver" = "*"
 pykicad = "*"
+shapely = "*"
 
 
 [dev-packages]

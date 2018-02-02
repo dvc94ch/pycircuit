@@ -11,8 +11,7 @@ setup(
     url='https://github.com/dvc94ch/pycircuit',
     keywords=['eda', 'cad', 'hdl', 'kicad'],
     install_requires=[
-        'numpy', 'scipy', 'shapely',
-        'ngspyce', 'pykicad', 'z3-solver'
+        'numpy', 'scipy', 'shapely', 'pykicad', 'z3-solver'
     ],
     tests_require=['pytest'],
     license='ISC'

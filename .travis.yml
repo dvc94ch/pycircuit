@@ -1,14 +1,15 @@
 language: python
 python:
-  - "3.4"
-  - "3.5"
   - "3.6"
+
+addons:
+  apt:
+    packages:
+      - libgeos-dev
 
 # command to install dependencies
 install:
-  - sudo apt-get install libgeos-dev libblas-dev liblapack-dev gfortran
   - pip install pipenv
-  - pip install -e . --upgrade
   - pipenv install --dev
 
 # command to run the dependencies
@@ -16,4 +17,3 @@ script:
   - pipenv run pytest
   - pipenv run autopep8 --in-place ./**/*.py
   - git diff --quiet
-  - pipenv run python3 examples/build.py
