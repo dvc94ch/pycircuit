@@ -1,14 +1,16 @@
 import os
 
+
+examplesdir = os.path.dirname(os.path.realpath(__file__))
 examples = ['common_emitter', 'joule_thief', 'mcu', 'sallen_key']
 
 
 def build_dir_path(example):
-    return os.path.join(example, 'build')
+    return os.path.join(examplesdir, example, 'build')
 
 
 def file_path(example, file):
-    return os.path.join(example, file)
+    return os.path.join(examplesdir, example, file)
 
 
 def build_file_path(example, file):

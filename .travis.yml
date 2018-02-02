@@ -14,3 +14,4 @@ script:
   - pipenv run pytest
   - pipenv run autopep8 --in-place ./**/*.py
   - git diff --quiet
+  - pipenv run python3 examples/build.py
