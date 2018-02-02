@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.signal
 import ngspyce
-from pycircuit.circuit import testbench
+from pycircuit.testbench import testbench
 from pycircuit.build import Builder
 from pycircuit.diffev import DiffEvolver
 

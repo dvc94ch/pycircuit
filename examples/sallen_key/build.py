@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.signal as sig
 from pycircuit.build import Builder
-from pycircuit.circuit import testbench
+from pycircuit.testbench import testbench
 from pycircuit.optimize import Optimizer
 from pycircuit.library.design_rules import oshpark_4layer
 

@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from pycircuit.formats import *
 from pycircuit.build import Builder
-from pycircuit.circuit import testbench
+from pycircuit.testbench import testbench
 
 from common_emitter import common_emitter_amplifer
 
