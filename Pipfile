@@ -1,0 +1,25 @@
+[[source]]
+
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+
+[packages]
+
+numpy = "*"
+shapely = "*"
+"z3-solver" = "*"
+pykicad = "*"
+
+
+[dev-packages]
+
+pytest = "*"
+twine = "*"
+"autopep8" = "*"
+
+
+[requires]
+
+python_version = "3.6"
