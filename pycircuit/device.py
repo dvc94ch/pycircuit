@@ -76,14 +76,14 @@ class Device(object):
                 if map.pin == pin:
                     break
             else:
-                raise AssertionError('No map for component %s pin %s in device %s' \
+                raise AssertionError('No map for component %s pin %s in device %s'
                                      % (self.component.name, pin.name, self.name))
         for pad in self.package.pads:
             for map in self.maps:
                 if map.pad == pad:
                     break
             else:
-                raise AssertionError('No map for package %s pad %s in device %s' \
+                raise AssertionError('No map for package %s pad %s in device %s'
                                      % (self.package.name, pad.name, self.name))
 
     def pin_by_pad(self, pad):

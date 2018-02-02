@@ -58,10 +58,11 @@ def decoupling_capacitors(*args):
         vss + Ref(name)['~']
 
 #@circuit('Debouncer')
-#def debouncer(r1='470', r2='10K', c='10nF', diode=True):
+# def debouncer(r1='470', r2='10K', c='10nF', diode=True):
 #    Node('R1', 'R', r1)
 #    Node('R2', 'R', r2)
 #    Node('C', 'C', c)
+
 
 @circuit('RGB')
 def rgb(r='330'):

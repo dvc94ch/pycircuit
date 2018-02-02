@@ -27,7 +27,8 @@ class SpiceModel(object):
         self.params = params
 
     def __str__(self):
-        params = ' '.join(['%s=%s' % (k, str(v)) for k, v in self.params.items()])
+        params = ' '.join(['%s=%s' % (k, str(v))
+                           for k, v in self.params.items()])
         return '.model %s %s (%s)' % (self.mname, self.ty, params)
 
 

@@ -50,22 +50,22 @@ Device('FE310-G000', pins=[
     Pin('GPIO_22', 'GPIO', Fun('PWM1', 'PWM', '3')),
     Pin('GPIO_23', 'GPIO'),
 
-    Out('AON_PMU_OUT_1', #domain='aon',
+    Out('AON_PMU_OUT_1',  # domain='aon',
         descr='Programmable SLEEP control'),
 
-    Out('AON_PMU_OUT_0', #domain='aon'
+    Out('AON_PMU_OUT_0',  # domain='aon'
         descr='Programmable SLEEP control'),
 
-    In('AON_PMU_DWAKEUP_N', #domain='aon',
+    In('AON_PMU_DWAKEUP_N',  # domain='aon',
        descr='Digital Wake-from-sleep.  Active low.'),
 
-    In('AON_ERST_N', #domain='aon',
+    In('AON_ERST_N',  # domain='aon',
        descr='External System Reset.  Active low.'),
 
-    In('AON_PSD_LFALTCLK', #domain='aon',
+    In('AON_PSD_LFALTCLK',  # domain='aon',
        descr='Optional 32kHz Clock input'),
 
-    In('AON_PSD_LFCLKSEL', #domain='aon',
+    In('AON_PSD_LFCLKSEL',  # domain='aon',
        descr='''32kHz clock source selector.  When
        driven low, AON_PSD_LFALTCLK input is used as the 32kHz low-frequency
        clock source.  When left unconnected or driven high, the internal LFROSC
@@ -147,7 +147,6 @@ def aon_btn(name, debounce=False):
         Net('GND') + Ref(name + '_C')['~']
 
 
-
 @circuit('FE310-G000')
 def fe310g000(qspi_flash=True, lfaltclk=True):
     '''Returns a circuit for a FE310-G000 Microcontroller.'''
@@ -183,7 +182,6 @@ def fe310g000(qspi_flash=True, lfaltclk=True):
     Net('VDD_1V8') + Ref('PLL_R')['~']
     Net('PLL_AVDD') + Ref('PLL_R')['~']
 
-
     # Crystal oscillator
     Sub('XTAL', pierce_oscillator('16MHz', '12pF'))
     Nets('XTAL_XI', 'XTAL_XO') + Ref('U')['XTAL_XI', 'XTAL_XO'] + \
@@ -204,7 +202,6 @@ def fe310g000(qspi_flash=True, lfaltclk=True):
         Net('VDD_3V3') + Refs('FLASH', 'FLASH_C')['VDD']
         Net('GND') + Ref('FLASH')['GND'] + Ref('FLASH_C')['VSS']
 
-
     if lfaltclk:
         Node('LFALTCLK', 'CLK')
         Sub('LFALTCLK_C', decoupling_capacitors('0.1uF'))
@@ -212,13 +209,13 @@ def fe310g000(qspi_flash=True, lfaltclk=True):
         Net('VDD_1V8') + Refs('LFALTCLK', 'LFALTCLK_C')['VDD']
         Net('GND') + Ref('LFALTCLK')['GND'] + Ref('LFALTCLK_C')['VSS']
 
-
     # Reset and Wake BTN
     Sub('RESET_BLK', aon_btn('RESET', debounce=True))
     Net('AON_ERST_N') + Ref('U')['AON_ERST_N'] + Ref('RESET_BLK')['IN']
 
     Sub('WAKE_BLK', aon_btn('WAKE'))
-    Net('AON_PMU_DWAKEUP_N') + Ref('U')['AON_PMU_DWAKEUP_N'] + Ref('WAKE_BLK')['IN']
+    Net('AON_PMU_DWAKEUP_N') + \
+        Ref('U')['AON_PMU_DWAKEUP_N'] + Ref('WAKE_BLK')['IN']
 
     Net('VDD_3V3') + Refs('RESET_BLK', 'WAKE_BLK')['VDD_3V3']
     Net('VDD_1V8') + Refs('RESET_BLK', 'WAKE_BLK')['VDD_1V8']

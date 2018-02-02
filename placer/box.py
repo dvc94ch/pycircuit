@@ -78,7 +78,7 @@ class Box(object):
 
     def __str__(self):
         return 'x=%s y=%s w=%s h=%s' % (self.x.value, self.y.value,
-                                       self.height, self.width)
+                                        self.height, self.width)
 
     @classmethod
     def from_inst(cls, inst):
@@ -113,8 +113,8 @@ class Z3Box(Box):
             Implies(Not(self.var_rot), And(self.var_rx == self.const_rx,
                                            self.var_ry == self.const_ry)),
             Implies(self.var_rot, And(self.var_rx == self.const_ry,
-                                              self.var_ry == self.const_rx))
-            )
+                                      self.var_ry == self.const_rx))
+        )
 
     def fix_position_constraint(self, x, y):
         return And(self.var_x == x, self.var_y == y)
@@ -125,7 +125,7 @@ class Z3Box(Box):
             other.var_x - self.var_x >= self.var_rx + other.var_rx,
             self.var_y - other.var_y >= self.var_ry + other.var_ry,
             other.var_y - self.var_y >= self.var_ry + other.var_ry
-            )
+        )
 
     def set_rotation(self, rotation):
         width, height = self.width, self.height

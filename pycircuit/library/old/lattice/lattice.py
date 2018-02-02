@@ -2,8 +2,7 @@ from pycircuit.device import *
 from pycircuit.footprint import *
 
 
-
-### iCE40 FPGA Family
+# iCE40 FPGA Family
 Device('HX1K',
        # IO Left
        Pin('IOL_1A', Bus('DPIO1', 'DPIO', '-')),
@@ -32,7 +31,7 @@ Device('HX1K',
        Pin('IOL_12B', Bus('DPIO12', 'DPIO', '+')),
        # PLL_VCC
        Pin('GNDPLL'),
-       Pin('VCCPLL'), # 1V2
+       Pin('VCCPLL'),  # 1V2
 
        # IO Bottom
        Pin('IOB_24', 'PIO'),
@@ -63,7 +62,7 @@ Device('HX1K',
        Pin('IOB_45_SDI', 'PIO', Bus('SPI', 'MOSI')),
        Pin('IOB_46_SCK', 'PIO', Bus('SPI', 'SCK')),
        Pin('IOB_47_SS', 'PIO', Bus('SPI', 'SS0')),
-       Pin('VCC_SPI'), # 3V3
+       Pin('VCC_SPI'),  # 3V3
 
        # IO Right
        Pin('IOR_48', 'PIO'),
@@ -91,7 +90,7 @@ Device('HX1K',
        Pin('IOR_70', 'PIO'),
        Pin('IOR_71', 'PIO'),
        Pin('IOR_72', 'PIO'),
-       Pin('VPP_2V5'), # 2V5
+       Pin('VPP_2V5'),  # 2V5
        Pin('VPP_FAST'),
 
        # IO Top
@@ -120,12 +119,11 @@ Device('HX1K',
        Pin('IOT_95', 'PIO'),
        Pin('IOT_96', 'PIO'),
        Pin('GND'),
-       Pin('VCC'), # 1V2
-       Pin('VCCIO_0'), # 3V3
-       Pin('VCCIO_1'), # 3V3
-       Pin('VCCIO_2'), # 3V3
-       Pin('VCCIO_3')) # 3V3
-
+       Pin('VCC'),  # 1V2
+       Pin('VCCIO_0'),  # 3V3
+       Pin('VCCIO_1'),  # 3V3
+       Pin('VCCIO_2'),  # 3V3
+       Pin('VCCIO_3'))  # 3V3
 
 
 Footprint('HX1K-TQFP144', 'HX1K', 'TQFP144',

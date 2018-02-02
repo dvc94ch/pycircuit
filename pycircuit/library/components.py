@@ -1,7 +1,7 @@
 from pycircuit.component import *
 
 
-### Passive Devices
+# Passive Devices
 Component('Z', 'Impedance',
           Pin('A', Fun('~'), optional=False),
           Pin('B', Fun('~'), optional=False))
@@ -53,7 +53,7 @@ Component('Transformer_1P_1S', 'Transformer with one primary and one secondary w
           Pin('L2.2', optional=False))
 
 
-### Active Devices
+# Active Devices
 Component('D', 'Diode',
           Pin('+', optional=False),
           Pin('-', optional=False))

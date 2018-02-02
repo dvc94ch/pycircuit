@@ -6,7 +6,8 @@ from pycircuit.outline import Hole, Outline
 def rectangle_with_mounting_holes(width, height, inset, hole_shift, hole_drill):
     shift_matrix = np.array([[1, 1], [-1, 1], [-1, -1], [1, -1]])
 
-    exterior_coords = np.array([[0, 0], [width, 0], [width, height], [0, height]])
+    exterior_coords = np.array(
+        [[0, 0], [width, 0], [width, height], [0, height]])
     interior_coords = exterior_coords + shift_matrix * inset
     interior = Polygon(interior_coords)
 
@@ -15,7 +16,8 @@ def rectangle_with_mounting_holes(width, height, inset, hole_shift, hole_drill):
     for pos in hole_coords:
         holes.append(Hole(pos, hole_drill))
         hole_clearance = hole_drill / 2 + inset
-        interior = interior.difference(Polygon(shift_matrix * hole_clearance + pos))
+        interior = interior.difference(
+            Polygon(shift_matrix * hole_clearance + pos))
 
     outline = Polygon(exterior_coords, [interior.exterior.coords])
     return Outline(outline, *holes)

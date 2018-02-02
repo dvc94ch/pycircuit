@@ -86,12 +86,15 @@ def to_kicad(self):
 @extends(Outline)
 def to_kicad(self, kpcb):
     for start, end in polygon_to_lines(list(self.polygon.exterior.coords)):
-        kline = ki.pcb.GrLine(list(start), list(end), layer='Edge.Cuts', width=0.15)
+        kline = ki.pcb.GrLine(list(start), list(
+            end), layer='Edge.Cuts', width=0.15)
         kpcb.lines.append(kline)
     for feature in self.features:
         center = [float(n) for n in feature.position]
-        end = [float(n) for n in feature.position + [feature.drill_size / 2, 0]]
-        kcircle = ki.pcb.GrCircle(list(center), list(end), layer='Edge.Cuts', width=0.15)
+        end = [float(n)
+               for n in feature.position + [feature.drill_size / 2, 0]]
+        kcircle = ki.pcb.GrCircle(list(center), list(
+            end), layer='Edge.Cuts', width=0.15)
         kpcb.circles.append(kcircle)
 
 
@@ -123,10 +126,10 @@ def to_kicad(self):
             kpcb.segments.append(kseg)
 
         for via in net.attributes.vias:
-            kvia  = ki.pcb.Via(at=list(via.coord)[0:2],
-                               net=knet_code,
-                               size=self.diameter(),
-                               drill=self.drill())
+            kvia = ki.pcb.Via(at=list(via.coord)[0:2],
+                              net=knet_code,
+                              size=self.diameter(),
+                              drill=self.drill())
             kpcb.vias.append(kvia)
 
     self.outline.to_kicad(kpcb)

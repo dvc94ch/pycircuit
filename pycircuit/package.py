@@ -313,6 +313,7 @@ class Package(object):
 
         try:
             cls.package_by_name(package.name)
-            raise Exception('Package with name %s already exists' % package.name)
+            raise Exception(
+                'Package with name %s already exists' % package.name)
         except IndexError:
             cls.packages.append(package)

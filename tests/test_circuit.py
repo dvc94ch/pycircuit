@@ -57,7 +57,8 @@ class CircuitTests(unittest.TestCase):
         subinst['p'] = net
         assert len(subinst.assigns) == 1
         assert len(net.assigns) == 1
-        assert repr(subinst) == 'subinst SubCircuit of SubCircuit {\n  p = n1\n}\n'
+        assert repr(
+            subinst) == 'subinst SubCircuit of SubCircuit {\n  p = n1\n}\n'
 
     def test_assign_subinst_to_port(self):
         port = Port('p1', PortType.IN)
@@ -69,7 +70,8 @@ class CircuitTests(unittest.TestCase):
         assert len(port.assigns) == 1
         assert len(port_inner.assigns) == 1
         assert port.assigns[0].net == port_inner.assigns[0].net
-        assert repr(subinst) == 'subinst SubCircuit of SubCircuit {\n  p = p1\n}\n'
+        assert repr(
+            subinst) == 'subinst SubCircuit of SubCircuit {\n  p = p1\n}\n'
 
     def test_port_to_object(self):
         p1 = Port('p1', PortType.IN)
@@ -79,7 +81,8 @@ class CircuitTests(unittest.TestCase):
         assert obj['name'] == 'p1'
 
     def test_port_from_object(self):
-        p1 = Port.from_object({'uid': 0, 'guid': 1, 'name': 'p1', 'type': 0}, self.circuit)
+        p1 = Port.from_object(
+            {'uid': 0, 'guid': 1, 'name': 'p1', 'type': 0}, self.circuit)
         assert p1.uid == 0
         assert p1.name == 'p1'
 
@@ -91,7 +94,8 @@ class CircuitTests(unittest.TestCase):
         assert obj['name'] == 'n1'
 
     def test_net_from_object(self):
-        n1 = Port.from_object({'uid': 0, 'guid': 1, 'name': 'n1', 'type': 0}, self.circuit)
+        n1 = Port.from_object(
+            {'uid': 0, 'guid': 1, 'name': 'n1', 'type': 0}, self.circuit)
         assert n1.uid == 0
         assert n1.name == 'n1'
 

@@ -130,7 +130,6 @@ class Builder(object):
         self.route()
         self.post_process()
 
-
     def compile(self):
         self.read_hashfile()
         self.circuit.to_file(self.files['net_in'])
@@ -139,7 +138,8 @@ class Builder(object):
         if not run:
             circuit = Circuit.from_file(self.files['net_out'])
 
-        self.step('net_out', 'net_yosys', lambda _, x: circuit.to_yosys_file(x))
+        self.step('net_out', 'net_yosys', lambda _,
+                  x: circuit.to_yosys_file(x))
         self.step('net_yosys', 'net_svg', netlistsvg)
         return circuit
 

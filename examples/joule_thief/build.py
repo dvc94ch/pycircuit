@@ -24,6 +24,7 @@ def sim():
     plt.show()
 '''
 
+
 def place(filein, fileout):
     placer = Placer()
     placer.place(filein, fileout)
@@ -51,5 +52,5 @@ if __name__ == '__main__':
 
     Builder(joule_thief.top(), outline=sick_of_beige('DP5031'),
             pcb_attributes=pcb_attributes, place=place,
-            #route=route,
+            # route=route,
             post_process=post_process).build()

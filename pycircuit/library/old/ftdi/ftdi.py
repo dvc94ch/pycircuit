@@ -2,21 +2,20 @@ from pycircuit.component import *
 from pycircuit.footprint import *
 
 
-
-### FT232
+# FT232
 Component('FT2232H', 'FTDI chip', (
     # Power and ground
-    Pin('VCORE'), # 1V8
-    Pin('VCCIO'), # 3V3
-    Pin('VPLL'), # 3V3
-    Pin('VPHY'), # 3V3
+    Pin('VCORE'),  # 1V8
+    Pin('VCCIO'),  # 3V3
+    Pin('VPLL'),  # 3V3
+    Pin('VPHY'),  # 3V3
     Pin('VREGIN'),
     Pin('VREGOUT'),
     Pin('AGND'),
     Pin('GND'),
     # Common pins
-    Pin('OSCI'), # 12MHz
-    Pin('OSCO'), # 12MHz
+    Pin('OSCI'),  # 12MHz
+    Pin('OSCO'),  # 12MHz
     Pin('REF'),
     Pin('DN', BusFun('USB0', 'USB', 'D-')),
     Pin('DP', BusFun('USB0', 'USB', 'D+')),
@@ -83,7 +82,6 @@ Component('FT2232H', 'FTDI chip', (
     Pin('BCBUS6'),
     Pin('BCBUS7', Fun('PWRSAV'))
 ))
-
 
 
 Footprint('FT2232HQ', 'FT2232H', 'QFN64',

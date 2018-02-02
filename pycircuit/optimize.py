@@ -31,7 +31,8 @@ class Optimizer(object):
         # Run simulation to find freqs
         self.freqs, _ = self.simulate()
         # Compute target values from specification
-        _, self.target = scipy.signal.freqs(*self.spec, worN=2 * np.pi * self.freqs)
+        _, self.target = scipy.signal.freqs(
+            *self.spec, worN=2 * np.pi * self.freqs)
 
         # Initialize DiffEvolver
         lbound = scipy.zeros(self.nparams)

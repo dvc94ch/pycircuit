@@ -156,7 +156,6 @@ class Compiler(object):
                 split_net = False
                 continue
 
-
         split_net = False
         path = Path()
 
@@ -171,7 +170,6 @@ class Compiler(object):
                         yield subpath(path, split_net=True)
         else:
             yield subpath(path)
-
 
     @staticmethod
     def circuit_paths(circuit):
@@ -192,7 +190,6 @@ class Compiler(object):
                 for path in Compiler.find_paths(assign):
                     yield path
 
-
     @staticmethod
     def analyze_path(path):
         def assign_to_string(assign):
@@ -206,7 +203,8 @@ class Compiler(object):
 
         def check_assign(assign1, assign2):
             try:
-                assign1.erc_type, assign2.erc_type = ERCType.diff(assign1.erc_type, assign2.erc_type)
+                assign1.erc_type, assign2.erc_type = ERCType.diff(
+                    assign1.erc_type, assign2.erc_type)
             except AssertionError:
                 print('ERC Error:',
                       assign_to_string(assign1),

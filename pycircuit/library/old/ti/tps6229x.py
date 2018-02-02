@@ -31,7 +31,7 @@ Device('TPS6229x', descr='''1A Step-Down Converter''', pins=[
 #Device('TPS62291', vout=3.3)
 #Device('TPS62293', vout=1.8)
 
-Footprint('TPS6229x', 'TPS6229x', 'QFN16', #'SON',
+Footprint('TPS6229x', 'TPS6229x', 'QFN16',  # 'SON',
           Map(1, 'SW'),
           Map(2, 'MODE'),
           Map(3, 'FB'),

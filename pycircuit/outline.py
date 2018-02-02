@@ -21,6 +21,7 @@ class OutlineDesignRules(object):
         return cls(obj['min_drill_size'], obj['min_slot_width'],
                    obj['min_cutout_size'])
 
+
 class OutlineDesignRuleError(Exception):
     pass
 
@@ -59,7 +60,7 @@ class Slot(OutlineElement):
     def __init__(self, position, drill_size, width, angle=0):
         self.position = position
         self.drill_size = drill_size
-        self.width = width # hole to hole
+        self.width = width  # hole to hole
         self.angle = angle
 
     def check(self, design_rules):

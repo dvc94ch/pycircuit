@@ -13,9 +13,9 @@ class Conductor(BaseMaterial):
         prop = {}
 
         _conductivity = {
-            'Cu': 5.96 * 10**7, #S/m @ 20C
-            'Ag': 6.30 * 10**7, #S/m @ 20C
-            'Au': 4.10 * 10**7, #S/m @ 20C
+            'Cu': 5.96 * 10**7,  # S/m @ 20C
+            'Ag': 6.30 * 10**7,  # S/m @ 20C
+            'Au': 4.10 * 10**7,  # S/m @ 20C
         }
 
         prop['conductivity'] = _conductivity[self.name]
@@ -29,9 +29,9 @@ class Dielectric(BaseMaterial):
         prop = {}
 
         _permittivity = {
-            'PVP': 3, #Er ref: Guess
-            'FR4': 4.6, #Er @1MHz ref: OSHPark
-            'FR408': 3.66, #Er @1GHz ref: OSHPark
+            'PVP': 3,  # Er ref: Guess
+            'FR4': 4.6,  # Er @1MHz ref: OSHPark
+            'FR408': 3.66,  # Er @1GHz ref: OSHPark
         }
 
         prop['permittivity'] = _permittivity[self.name]

@@ -14,7 +14,6 @@ class Z3Assign(object):
         self.z3_pin = Int(str(_uuid) + '_pin')
         self.z3_bus = Int(str(_uuid) + '_bus')
 
-
     def component_constraint(self, component):
         self.component = component
 
@@ -88,13 +87,16 @@ class AssignmentProblem(object):
                 self.assigns.append(assign)
 
         # Each assignment needs a different Fun
-        self.constraints.append(Distinct([assign.z3_fun for assign in self.assigns]))
+        self.constraints.append(
+            Distinct([assign.z3_fun for assign in self.assigns]))
 
         # Each assignment needs a different Pin
-        self.constraints.append(Distinct([assign.z3_pin for assign in self.assigns]))
+        self.constraints.append(
+            Distinct([assign.z3_pin for assign in self.assigns]))
 
         # Each BusFun needs a different bus
-        self.constraints.append(Distinct([bus_assign.z3_bus for bus_assign in self.bus_assigns]))
+        self.constraints.append(
+            Distinct([bus_assign.z3_bus for bus_assign in self.bus_assigns]))
 
     def solve(self):
         s = Solver()

@@ -76,7 +76,6 @@ class Pin(object):
             for fun in funs:
                 self.add_fun(fun)
 
-
     def has_function(self, function):
         for fun in self.funs:
             if fun.function == function:
@@ -200,20 +199,24 @@ class Io(Pin):
         kwargs['type'] = PinType.INOUT
         super().__init__(name, Fun('GPIO'), *funs, **kwargs)
 
+
 class In(Pin):
     def __init__(self, name, *funs, **kwargs):
         kwargs['type'] = PinType.IN
         super().__init__(name, *funs, **kwargs)
+
 
 class Out(Pin):
     def __init__(self, name, *funs, **kwargs):
         kwargs['type'] = PinType.OUT
         super().__init__(name, *funs, **kwargs)
 
+
 class Pwr(Pin):
     def __init__(self, name, **kwargs):
         kwargs['type'] = PinType.POWER
         super().__init__(name, **kwargs)
+
 
 class Gnd(Pin):
     def __init__(self, name, **kwargs):

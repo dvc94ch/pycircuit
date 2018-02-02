@@ -52,19 +52,19 @@ def oshpark_4layer():
     ])
 
     outline_design_rules = OutlineDesignRules(
-        min_drill_size  = 0.254,
-        min_slot_width  = 1.7272,
-        min_cutout_size = 1.7272
+        min_drill_size=0.254,
+        min_slot_width=1.7272,
+        min_cutout_size=1.7272
     )
 
     trace_design_rules = TraceDesignRules(
-        min_width            = 0.127,
-        min_clearance        = 0.127,
-        min_drill            = 0.254,
-        min_annular_ring     = 0.1016,
-        min_edge_clearance   = 0.381,
-        blind_vias_allowed   = False,
-        burried_vias_allowed = False
+        min_width=0.127,
+        min_clearance=0.127,
+        min_drill=0.254,
+        min_annular_ring=0.1016,
+        min_edge_clearance=0.381,
+        blind_vias_allowed=False,
+        burried_vias_allowed=False
     )
 
     cost_cm2 = 1.5
@@ -110,19 +110,19 @@ def oshpark_2layer():
     ])
 
     outline_design_rules = OutlineDesignRules(
-        min_drill_size  = 0.254,
-        min_slot_width  = 1.7272,
-        min_cutout_size = 1.7272
+        min_drill_size=0.254,
+        min_slot_width=1.7272,
+        min_cutout_size=1.7272
     )
 
     trace_design_rules = TraceDesignRules(
-        min_width            = 0.1524,
-        min_clearance        = 0.1524,
-        min_drill            = 0.254,
-        min_annular_ring     = 0.127,
-        min_edge_clearance   = 0.381,
-        blind_vias_allowed   = False,
-        burried_vias_allowed = False
+        min_width=0.1524,
+        min_clearance=0.1524,
+        min_drill=0.254,
+        min_annular_ring=0.127,
+        min_edge_clearance=0.381,
+        blind_vias_allowed=False,
+        burried_vias_allowed=False
     )
 
     cost_cm2 = 0.75

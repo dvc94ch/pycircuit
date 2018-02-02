@@ -7,6 +7,7 @@ from placer.box import Z3Box
 from placer.bin import Z3Bin
 from placer.grid import Grid
 
+
 class Placer(object):
     def __init__(self, grid_size=Courtyard.IPC_GRID_SCALE, density=1.5):
         assert density > 1
@@ -16,7 +17,8 @@ class Placer(object):
     def place(self, filein, fileout):
         self.pcb = Pcb.from_file(filein)
         left, bottom, right, top = self.pcb.outline.polygon.interiors[0].bounds
-        width, height = (right - left) / self.grid_size, (top - bottom) / self.grid_size
+        width, height = (right - left) / \
+            self.grid_size, (top - bottom) / self.grid_size
         print('width', width, 'height', height)
 
         boxes = []
@@ -47,7 +49,7 @@ class Placer(object):
         s.add(pcb.var_height <= height)
         s.add(pcb.area_constraint(min_area * self.density))
 
-        #s.add(boxes[0].fix_position_constraint(*pcb.var_center()))
+        # s.add(boxes[0].fix_position_constraint(*pcb.var_center()))
 
         if s.check() == sat:
             model = s.model()
@@ -73,7 +75,8 @@ class Placer(object):
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser(description='SMT-based, constrained placement')
+    parser = argparse.ArgumentParser(
+        description='SMT-based, constrained placement')
 
     parser.add_argument('filein', type=str)
     parser.add_argument('fileout', type=str)

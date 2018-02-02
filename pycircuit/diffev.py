@@ -38,8 +38,6 @@ import numpy as np
 # DAMAGE.
 
 
-
-
 # Notes: for future modifications:
 # Ali, M. M., and A. Toern. Topographical differential evolution using
 # pre-calculated differentials. _Stochastic and Global Optimization_. 1--17.
@@ -133,8 +131,9 @@ class DiffEvolver(object):
     generations -- number of generations already computed
     func, args, crossover_rate, scale, strategy, eps -- from constructor
     """
+
     def __init__(self, func, pop0, args=(), crossover_rate=0.5, scale=None,
-            strategy=('rand', 2, 'bin'), eps=1e-6, prng=np.random):
+                 strategy=('rand', 2, 'bin'), eps=1e-6, prng=np.random):
         self.func = func
         self.population = np.array(pop0)
         self.npop, self.ndim = self.population.shape
@@ -167,7 +166,7 @@ class DiffEvolver(object):
             ('best', 2, 'bin'): (self.choose_best, self.diff2, self.bin_crossover),
             ('rand-to-best', 1, 'bin'):
                 (self.choose_rand_to_best, self.diff1, self.bin_crossover),
-            }
+        }
 
     def clear(self):
         self.best_val_history = []
@@ -177,12 +176,12 @@ class DiffEvolver(object):
 
     @classmethod
     def frombounds(cls, func, lbound, ubound, npop, crossover_rate=0.5,
-            scale=None, strategy=('rand', 2, 'bin'), eps=1e-6, prng=np.random):
+                   scale=None, strategy=('rand', 2, 'bin'), eps=1e-6, prng=np.random):
         lbound = np.asarray(lbound)
         ubound = np.asarray(ubound)
         pop0 = prng.uniform(lbound, ubound, size=(npop, len(lbound)))
         return cls(func, pop0, crossover_rate=crossover_rate, scale=scale,
-            strategy=strategy, eps=eps, prng=prng)
+                   strategy=strategy, eps=eps, prng=prng)
 
     def set_boundaries(self, lbound, ubound, mode='mirror'):
         boundary_table = {
@@ -275,7 +274,7 @@ class DiffEvolver(object):
     def get_trial(self, candidate):
         chooser, differ, crosser = self.jump_table[self.strategy]
         trial = crosser(self.population[candidate],
-            chooser(candidate) + differ(candidate))
+                        chooser(candidate) + differ(candidate))
         return trial
 
     def converged(self):
@@ -289,10 +288,10 @@ class DiffEvolver(object):
         for gen in range(self.generations+1, self.generations+newgens+1):
             for candidate in range(self.npop):
                 trial = self.get_trial(candidate)
-                ## apply boundary function
+                # apply boundary function
                 if self.bound:
-                    trial = self.bound(candidate,trial)
-                    ## check if we have abortet that trial
+                    trial = self.bound(candidate, trial)
+                    # check if we have abortet that trial
                     if trial is None:
                         print('.'),
                         continue

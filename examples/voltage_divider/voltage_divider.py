@@ -11,7 +11,8 @@ Device('Connector', 'Connector', 'Pins_3x1',
        Map('A1', 'vin'),
        Map('A2', 'vout'),
        Map('A3', 'gnd')
-)
+       )
+
 
 @circuit('Voltage Divider', 'gnd', None, 'vin', 'vout')
 def voltage_divider(self, gnd, vin, vout):
@@ -37,7 +38,8 @@ def route(fin, fout):
 
 
 if __name__ == '__main__':
-    outline = rectangle_with_mounting_holes(20, 10, inset=1, hole_shift=2, hole_dia=1)
+    outline = rectangle_with_mounting_holes(
+        20, 10, inset=1, hole_shift=2, hole_dia=1)
 
     Builder(top(), outline=outline,
             pcb_attributes=oshpark_2layer(),

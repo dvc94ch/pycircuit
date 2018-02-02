@@ -119,7 +119,8 @@ def to_yosys(self):
                 connections[assign.pin.name] = [assign.net.uid]
 
             skin = match_skin(inst)
-            port_directions[assign.pin.name] = match_port_direction(skin, assign)
+            port_directions[assign.pin.name] = match_port_direction(
+                skin, assign)
 
             cells[inst.name] = {
                 'type': match_skin(inst),

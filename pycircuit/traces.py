@@ -70,7 +70,7 @@ class NetClass(object):
         return value
 
     def to_object(self):
-        obj = { 'uid': self.uid }
+        obj = {'uid': self.uid}
         if self.parent is not None:
             obj['net_class'] = self.parent.uid
         if self._segment_width is not None:

@@ -49,13 +49,13 @@ Device('TPS6213x', descr='''3V to 17V, 3A Step-Down Converter''', pins=[
 
 
 #Device('TPS62130', 'TPS62130x', adjustable=True)
-#Device('TPS62130A', 'TPS62130x', adjustable=True) # Power Good logic level low
+# Device('TPS62130A', 'TPS62130x', adjustable=True) # Power Good logic level low
 #Device('TPS62131', 'TPS62130x', vout=1.8, adjustable=False)
 #Device('TPS62132', 'TPS62130x', vout=3.3, adjustable=False)
 #Device('TPS62133', 'TPS62130x', vout=5, adjustable=False)
 
 
-Footprint('TPS6213x', 'TPS6213x', 'QFN16', #VQFN16
+Footprint('TPS6213x', 'TPS6213x', 'QFN16',  # VQFN16
           Map(1, 'SW'),
           Map(2, 'SW'),
           Map(3, 'SW'),
@@ -89,7 +89,7 @@ def tps6213x(dev='TPS6213x', en=True, pg=False, fb=False):
 
     Node('U', dev)
 
-    ## Input circuitry.
+    # Input circuitry.
     # PVIN and AVIN must be connected to same source
     Net('VIN') + Ref('U')['PVIN', 'AVIN']
     # AGND, PGND and EP must be connected
@@ -101,8 +101,7 @@ def tps6213x(dev='TPS6213x', en=True, pg=False, fb=False):
     Net('VIN') + Ref('CIN1')['~'] + Ref('CIN2')['~']
     Net('GND') + Ref('CIN1')['~'] + Ref('CIN2')['~']
 
-
-    ## Output circuitry.
+    # Output circuitry.
     # Recommended inductor values are 1/2.2uH.
     Node('L', 'L', '2.2uH')
     Net('SW') + Ref('U')['SW'] + Ref('L')['~']
@@ -112,8 +111,7 @@ def tps6213x(dev='TPS6213x', en=True, pg=False, fb=False):
     Node('COUT', 'C', '22uF')
     Nets('VOUT', 'GND') + Ref('COUT')['~', '~']
 
-
-    ## Feedback voltage divider
+    # Feedback voltage divider
     if fb:
         Node('FB_R1', 'R', fb[0])
         Node('FB_R2', 'R', fb[1])
@@ -124,8 +122,7 @@ def tps6213x(dev='TPS6213x', en=True, pg=False, fb=False):
         # Connect FB to GND for fixed output voltage regulators.
         Net('GND') + Ref('U')['FB']
 
-
-    ## Misc configuration pins
+    # Misc configuration pins
     # EN pin
     if en:
         # Connect EN to VIN to enable device when power
@@ -141,7 +138,6 @@ def tps6213x(dev='TPS6213x', en=True, pg=False, fb=False):
     else:
         # PG should be connected to GND when unused
         Net('GND') + Ref('U')['PG']
-
 
     # DEF and FSW pins are connected to GND by default
     Net('GND') + Ref('U')['DEF', 'FSW']

@@ -56,27 +56,21 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
             # use more expensive, but more scalable, built-in AMO theory
             AssertAtMostOne(vars)
 
-    def BVEQ(bva,bvb):
+    def BVEQ(bva, bvb):
         if(len(bva) != len(bvb)):
             return false()
         same = true()
-        for a,b in zip(bva,bvb):
+        for a, b in zip(bva, bvb):
             same = And(same, Xnor(a, b))
         return same
-
-
-
 
     if (len(router.monosat_args) > 0):
         args = " ".join(router.monosat_args)
         print("Monosat args: " + args)
         Monosat().init(args)
 
-
-
-
     graphs = []
-    all_graphs=[]
+    all_graphs = []
     for _ in nets:
         # for each net to be routed, created a separate symbolic graph.
         # later we will add constraints to force each edge to be enabled in at
@@ -91,7 +85,7 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
 
         all_graphs.append(graphs[-1])
 
-    flow_graph=None
+    flow_graph = None
     flow_graph_edges = dict()
     flow_grap_edge_list = collections.defaultdict(list)
     if router.maxflow_enforcement_level >= 1:
@@ -100,12 +94,11 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
         flow_graph = Graph()
         all_graphs.append(flow_graph)
 
-
     print("Building grid")
     out_grid = dict()
     in_grid = dict()
     vertex_grid = dict()
-    vertices=dict()
+    vertices = dict()
     fromGrid = dict()
     for g in all_graphs:
         out_grid[g] = dict()
@@ -153,7 +146,6 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
         for (x, y) in net:
             net_nodes.add((x, y))
 
-
     # create undirected edges between neighbouring nodes
     def addEdge(n, r, diagonal_edge=False):
         e = None
@@ -178,7 +170,6 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                         edges.append(eg)
                         if not diagonal_edge:
                             Assert(eg)
-
 
                     if flow_graph is not None:
                         # create the same edge in the flow graph
@@ -205,7 +196,7 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                         eg = (g.addEdge(out_grid[g][r], in_grid[g][n]))
                         if e is None:
                             e = eg
-                        undirected_edges[eg]=e
+                        undirected_edges[eg] = e
                         edges.append(eg)
                         if not diagonal_edge:
                             Assert(eg)
@@ -239,7 +230,7 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                     eg = (g.addEdge(out_grid[g][n], in_grid[g][r]))
                     if e is None:
                         e = eg
-                    undirected_edges[eg]=e
+                    undirected_edges[eg] = e
                     if not diagonal_edge:
                         Assert(eg)
                     eg2 = (g.addEdge(out_grid[g][r], in_grid[g][n]))
@@ -247,7 +238,7 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                         Assert(eg2)
                     else:
                         AssertEq(eg, eg2)
-                    undirected_edges[eg2] = e # map e2 to e
+                    undirected_edges[eg2] = e  # map e2 to e
                     edges.append(eg)
                 if flow_graph is not None:
                     # add a _directed_ edge from n to r
@@ -258,7 +249,7 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                                               in_grid[flow_graph][r]))
                     edges.append(ef)
                     if router.flowgraph_separation_enforcement > 0:
-                        AssertEq(ef,ef2)
+                        AssertEq(ef, ef2)
                         flow_grap_edge_list[n].append(ef)
                         flow_grap_edge_list[r].append(ef)
                         flow_graph_edges[(n, r)] = ef
@@ -301,9 +292,10 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                     diag_up = e
 
                 if diag_up and diag_down:
-                    AssertNand(diag_up, diag_down) #cannot route both diagonals
+                    # cannot route both diagonals
+                    AssertNand(diag_up, diag_down)
 
-    vertex_used=None
+    vertex_used = None
 
     # enforce constraints from the .pcrt file
     if len(constraints) > 0:
@@ -325,7 +317,7 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
               (router.graph_separation_enforcement >= 2)
 
     print("Enforcing separation")
-    #force each vertex to be in at most one graph.
+    # force each vertex to be in at most one graph.
     for x in range(width):
         for y in range(height):
             n = (x, y)
@@ -352,7 +344,8 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                     if flow_graph is not None:
                         # Assert that iff this vertex is in _any_ graph, it must
                         # be in the flow graph
-                        AssertEq(vertex_used[(x, y)], vertex_grid[flow_graph][n])
+                        AssertEq(vertex_used[(x, y)],
+                                 vertex_grid[flow_graph][n])
 
     if uses_bv:
         # Optionally, use a bitvector encoding to determine which graph each
@@ -410,7 +403,6 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                 assert(all(seen_bit))
                 vertices_bv[(x, y)] = netbv
 
-
     # the following constraints are only relevant if maximum flow constraints
     # are being used. These constraints ensure that in the maximum flow graph,
     # edges are not connected between different nets.
@@ -432,22 +424,21 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                         # space.
                         AssertImplies(Or(Not(vertex_used[n]), Not(vertex_used[r])),
                                       Not(flow_graph_edges[(n, r)]))
-                        any_same=false()
+                        any_same = false()
                         for i in range(len(vertices[n])):
                             # Enable this edge if both vertices belong to the
                             # same graph
                             same_graph = And(vertices[n][i], vertices[r][i])
-                            AssertImplies(same_graph, flow_graph_edges[(n,r)])
+                            AssertImplies(same_graph, flow_graph_edges[(n, r)])
                             any_same = Or(any_same, same_graph)
                             # Assert that if vertices[n] != vertices[r], then
                             # flow_graph_edges[(n, r)] = false
-                            for j in range(i + 1,len(vertices[r])):
+                            for j in range(i + 1, len(vertices[r])):
                                 # if the end points of this edge belong to
                                 # different graphs, disable them.
                                 AssertImplies(And(vertices[n][i], vertices[r][j]),
                                               Not(flow_graph_edges[(n, r)]))
                         AssertEq(flow_graph_edges[(n, r)], any_same)
-
 
                 if y < height - 1:
                     r = (x, y + 1)
@@ -520,7 +511,6 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
                 # force the terminal nodes to be enabled in the flow graph
                 Assert(vertex_grid[flow_graph][n])
 
-
     print("Enforcing reachability")
     reachset = dict()
     # In each net's corresponding symbolic graph, enforce that the first
@@ -539,11 +529,9 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
             Assert(r)
 
             # decide reachability before considering regular variable decisions.
-            r.setDecisionPriority(1);
+            r.setDecisionPriority(1)
             # That prioritization is required for the RUC heuristics to take
             # effect.
-
-
 
     if router.maxflow_enforcement_level >= 1:
         print("Enforcing flow constraints")
@@ -560,23 +548,23 @@ def route_multi(router, width, height, nets, constraints=[], disabled=[]):
         source = g.addNode()
         dest = g.addNode()
         for net in nets:
-            Assert(g.addEdge(source, in_grid[g][net[0]], 1)) # directed edges!
+            Assert(g.addEdge(source, in_grid[g][net[0]], 1))  # directed edges!
             Assert(g.addEdge(out_grid[g][net[1]], dest, 1))  # directed edges!
         # create a maximum flow constraint
         m = g.maxFlowGreaterOrEqualTo(source, dest, len(nets))
-        Assert(m) # assert the maximum flow constraint
+        Assert(m)  # assert the maximum flow constraint
 
         # These settings control how the maximum flow constraints interact
         # heuristically with the routing constraints.
         if router.maxflow_enforcement_level == 3:
             # sometimes make decisions on the maxflow predicate.
-            m.setDecisionPriority(1);
+            m.setDecisionPriority(1)
         elif router.maxflow_enforcement_level == 4:
             # always make decisions on the maxflow predicate.
-            m.setDecisionPriority(2);
+            m.setDecisionPriority(2)
         else:
             # never make decisions on the maxflow predicate.
-            m.setDecisionPriority(-1);
+            m.setDecisionPriority(-1)
 
     print("Solving...")
 

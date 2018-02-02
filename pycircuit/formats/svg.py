@@ -106,6 +106,7 @@ class SvgLine(SvgElement):
         attrs['y2'] = end[1]
         super().__init__(attrs)
 
+
 class SvgCircle(SvgElement):
     tag = 'circle'
 
@@ -155,7 +156,6 @@ class SvgPath(SvgElement):
 
         path = 'M {0} L {1} z'.format(coords[0], ' L '.join(coords[1:]))
         return self.set_attrs({'d': path})
-
 
 
 @extends(Package)
@@ -215,7 +215,8 @@ def to_svg(self):
         pads_layer.append(transform(pads, x, y, angle))
         crtyd_layer.append(transform(crtyd, x, y, angle))
         ref_layer.append(transform(ref, x, y, angle, no_flip=True))
-        pad_labels_layer.append(transform(pad_labels, x, y, angle, no_flip=True))
+        pad_labels_layer.append(
+            transform(pad_labels, x, y, angle, no_flip=True))
 
     layer = SvgGroup('layer')
     layer.add_class(self.layer.name)
@@ -240,7 +241,7 @@ def to_svg(self):
                         SvgCircle(via.drill / 2, {
                             'class': 'drill'
                         })
-        ).translate(via.coord[0], via.coord[1])
+                        ).translate(via.coord[0], via.coord[1])
         layer.append(svia)
 
     for seg in self.segments:

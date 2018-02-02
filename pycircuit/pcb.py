@@ -63,7 +63,6 @@ class Matrix(object):
         return Matrix.translation(x, y).dot(Matrix.rotation(angle)).dot(flip)
 
 
-
 class AbsolutePad(object):
     def __init__(self, inst, pad, matrix):
         self.inst = inst

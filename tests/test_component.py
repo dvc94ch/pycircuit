@@ -31,7 +31,8 @@ class PinTests(unittest.TestCase):
         assert pin.description == 'A GPIO Pin'
 
     def test_pin_with_fun(self):
-        pin = Pin('GPIO_1', Fun('GPIO'), BusFun('UART0', 'UART_TX'), description='A GPIO Pin')
+        pin = Pin('GPIO_1', Fun('GPIO'), BusFun(
+            'UART0', 'UART_TX'), description='A GPIO Pin')
         assert pin.name == 'GPIO_1'
         assert pin.description == 'A GPIO Pin'
         assert len(pin.funs) == 2

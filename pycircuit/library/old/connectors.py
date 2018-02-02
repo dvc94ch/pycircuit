@@ -1,9 +1,8 @@
 from pycircuit.device import *
 
 
-
-### Connectors
-## Power Connectors
+# Connectors
+# Power Connectors
 # DC Connector
 Device('DCCONN', pins=[
     Pwr('GND'),
@@ -11,7 +10,7 @@ Device('DCCONN', pins=[
 ])
 
 
-## Data Connectors
+# Data Connectors
 # USB Connector
 Device('USBCONN', pins=[
     Pwr('GND'),

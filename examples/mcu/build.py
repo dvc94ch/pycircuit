@@ -9,6 +9,7 @@ def place(filein, fileout):
     placer = Placer()
     placer.place(filein, fileout)
 
+
 def post_process(pcb, kpcb):
     xmin, ymin, xmax, ymax = pcb.boundary()
     coords = [(xmin, ymin), (xmin, ymax), (xmax, ymax), (xmax, ymin)]

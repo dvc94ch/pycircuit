@@ -5,7 +5,7 @@ from pycircuit.pinassign import *
 Component('R', 'Resistor',
           Pin('1', Fun('~')),
           Pin('2', Fun('~'))
-)
+          )
 
 Component('MCU', 'Microcontroller',
           Pin('VCC'),
@@ -13,7 +13,7 @@ Component('MCU', 'Microcontroller',
           Pin('GPIO1', Fun('GPIO'), BusFun('UART0', 'UART_RX')),
           Pin('GPIO2', Fun('GPIO'), BusFun('UART1', 'UART_TX')),
           Pin('GPIO3', Fun('GPIO'), BusFun('UART1', 'UART_RX'))
-)
+          )
 
 Component('3x0806', '2 Resistors and one Capacitor',
           Pin('P1.1', BusFun('P1', '~'), BusFun('P1', '+'), BusFun('P1', '-')),
@@ -22,7 +22,7 @@ Component('3x0806', '2 Resistors and one Capacitor',
           Pin('P2.2', BusFun('P2', '~'), BusFun('P2', '+'), BusFun('P2', '-')),
           Pin('P3.1', BusFun('P3', '~'), BusFun('P3', '+'), BusFun('P3', '-')),
           Pin('P3.2', BusFun('P3', '~'), BusFun('P3', '+'), BusFun('P3', '-')),
-)
+          )
 
 
 class PinAssignTests(unittest.TestCase):

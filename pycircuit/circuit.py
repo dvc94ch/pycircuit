@@ -154,9 +154,11 @@ class Port(CircuitElement):
         port = cls(obj['name'], port_type,
                    _parent=parent, _uid=obj['uid'], _guid=obj['guid'])
         if 'internal' in obj:
-            port.internal = PortAssign.from_object(obj['internal'], parent, port)
+            port.internal = PortAssign.from_object(
+                obj['internal'], parent, port)
         if 'external' in obj:
-            port.external = PortAssign.from_object(obj['external'], parent, port, external=True)
+            port.external = PortAssign.from_object(
+                obj['external'], parent, port, external=True)
         return port
 
 
@@ -596,6 +598,7 @@ class ERCType(Enum):
         else:
             raise TypeError(type(ty))
 
+
 class SubInst(CircuitElement):
     def __init__(self, circuit, _parent=None, _uid=None, _guid=None):
         super().__init__(None, _parent, _uid, _guid)
@@ -627,7 +630,7 @@ class SubInst(CircuitElement):
     def __repr__(self):
         subinst = 'subinst %s of %s {\n' % (self.name, self.circuit.name)
         for assign in self.assigns:
-             subinst += '  ' + repr(assign) + '\n'
+            subinst += '  ' + repr(assign) + '\n'
         subinst += '}\n'
         return subinst
 
@@ -657,6 +660,7 @@ def parse_busses(string, cons, **kwargs):
         return busses[0]
     return busses
 
+
 def parse_power_net(string):
     lstr = string.lower()
     if lstr == 'vcc':
@@ -674,8 +678,10 @@ def parse_power_net(string):
         lstr = lstr[0:-1]
     return float(lstr)
 
+
 def nets(string):
     return parse_busses(string, Net)
+
 
 def circuit(name, gnd=None, power=None, inputs=None, outputs=None):
     def closure(function):
@@ -758,9 +764,11 @@ def testbench(circuit):
             dut[port.name] = nets[-1]
 
             if port.type == PortType.POWER:
-                Inst('V', 'dc %d' % parse_power_net(port.name), _parent=tb)['+', '-'] = nets[-1], gnd
+                Inst('V', 'dc %d' % parse_power_net(port.name),
+                     _parent=tb)['+', '-'] = nets[-1], gnd
             elif port.type == PortType.IN:
-                Inst('V', 'sin(0, 0.1, 1K) ac 1', _parent=tb)['+', '-'] = nets[-1], gnd
+                Inst('V', 'sin(0, 0.1, 1K) ac 1', _parent=tb)[
+                    '+', '-'] = nets[-1], gnd
             elif port.type == PortType.OUT:
                 Inst('TP', _parent=tb)['TP'] = nets[-1]
 
