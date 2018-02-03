@@ -3,22 +3,22 @@ from pycircuit.component import *
 
 # Passive Devices
 Component('Z', 'Impedance',
-          Pin('A', Fun('~'), optional=False),
-          Pin('B', Fun('~'), optional=False))
+          Pin('L', Fun('~'), optional=False),
+          Pin('R', Fun('~'), optional=False))
 
 Component('R', 'Resistor',
-          Pin('A', Fun('~'), optional=False),
-          Pin('B', Fun('~'), optional=False))
+          Pin('L', Fun('~'), optional=False),
+          Pin('R', Fun('~'), optional=False))
 
 Component('C', 'Capacitor',
-          Pin('A', BusFun('Ceramic', '~'),
+          Pin('L', BusFun('Ceramic', '~'),
               BusFun('Electrolytic', '+'), optional=False),
-          Pin('B', BusFun('Ceramic', '~'),
+          Pin('R', BusFun('Ceramic', '~'),
               BusFun('Electrolytic', '-'), optional=False))
 
 Component('L', 'Inductor',
-          Pin('A', Fun('~'), optional=False),
-          Pin('B', Fun('~'), optional=False))
+          Pin('L', Fun('~'), optional=False),
+          Pin('R', Fun('~'), optional=False))
 
 Component('V', 'Voltage source',
           Pin('+', optional=False),
@@ -29,8 +29,8 @@ Component('S', 'Switch',
           Pin('B', Fun('~'), optional=False))
 
 Component('XTAL', 'Crystal',
-          Pin('A', Fun('~'), optional=False),
-          Pin('B', Fun('~'), optional=False))
+          Pin('L', Fun('~'), optional=False),
+          Pin('R', Fun('~'), optional=False))
 
 Component('TP', 'Test point',
           In('TP', optional=False))
@@ -55,8 +55,8 @@ Component('Transformer_1P_1S', 'Transformer with one primary and one secondary w
 
 # Active Devices
 Component('D', 'Diode',
-          Pin('+', optional=False),
-          Pin('-', optional=False))
+          Pin('A', optional=False),
+          Pin('C', optional=False))
 
 Component('Q', 'Bipolar transistor',
           Pin('B', optional=False),

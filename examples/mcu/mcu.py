@@ -43,8 +43,8 @@ Device('V0805', 'V', '0805',
        Map('2', '-'))
 
 Device('OSC0805', 'XTAL', '0805',
-       Map('1', 'A'),
-       Map('2', 'B'))
+       Map('1', 'L'),
+       Map('2', 'R'))
 
 
 @circuit('LED', 'gnd', None, 'vin')
@@ -52,7 +52,7 @@ def led(self, gnd, vin):
     n1 = nets('n1')
 
     Inst('R')['~', '~'] = vin, n1
-    Inst('D', 'led')['+', '-'] = n1, gnd
+    Inst('D', 'led')['A', 'C'] = n1, gnd
 
 
 @circuit('RGB', 'gnd', None, 'red green blue')

@@ -4,13 +4,13 @@ from pycircuit.device import *
 for device in ['R', 'C']:
     for package in ['0805']:
         Device('%s%s' % (device, package), device, package,
-               Map('1', 'A'),
-               Map('2', 'B'))
+               Map('1', 'L'),
+               Map('2', 'R'))
 
 for package in ['0805']:
     Device('D%s' % package, 'D', package,
-           Map('1', '+'),
-           Map('2', '-'))
+           Map('1', 'A'),
+           Map('2', 'C'))
 
 for a, b, c in itertools.permutations('BCE', 3):
     Device('SOT23' + a + b + c, 'Q', 'SOT23',

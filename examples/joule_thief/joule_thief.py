@@ -23,7 +23,7 @@ def joule_thief(self, gnd, vin, vout):
 
     Inst('R', '1k 0805')['~', '~'] = vin, nr
     Inst('Q', 'npn sot23')['B', 'C', 'E'] = nb, vout, gnd
-    Inst('D', 'led white 0805')['+', '-'] = vout, gnd
+    Inst('D', 'led white 0805')['A', 'C'] = vout, gnd
 
 
 @circuit('Top')

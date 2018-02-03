@@ -5,94 +5,67 @@ from pycircuit.formats import extends
 
 
 def match_skin(inst):
+    lookup = {
+        'R': 'resistor',
+        'C': 'capacitor',
+        'L': 'inductor',
+        'XTAL': 'crystal',
+    }
+
     cname = inst.component.name
     value = '' if inst.value is None else inst.value
-    suffix = '_h' if inst.horizontal else '_v'
+    suffix = '' if inst.horizontal else '_rot90'
 
-    if cname == 'R' or cname == 'C' or cname == 'L':
-        return cname.lower() + suffix
+    if cname in lookup:
+        return lookup[cname] + suffix
 
     if cname == 'D':
         if 'led' in value:
-            return 'd_led' + suffix
+            return 'led' + suffix
         if 'sk' in value:
-            return 'd_sk' + suffix
-        return 'd' + suffix
+            return 'diode_schottky' + suffix
+        return 'diode' + suffix
 
     if cname == 'Q':
         if 'pnp' in value:
-            return 'q_pnp'
-        return 'q_npn'
-
-    mapping = {
-        'OP': 'op',
-        'XTAL': 'xtal',
-        'V': 'v',
-        'I': 'i',
-        'Transformer_1P_1S': 'transformer_1p_1s'
-    }
-
-    if cname in mapping:
-        return mapping[cname]
+            return 'transistor_pnp'
+        return 'BC846'
 
     return cname
 
 
-def match_port_direction(skin, assign):
-    if skin.startswith('r_') or skin.startswith('c_') or skin.startswith('l_'):
-        return {'A': 'input', 'B': 'output'}[assign.pin.name]
-    if skin.startswith('d_'):
-        return {'+': 'input', '-': 'output'}[assign.pin.name]
-    if skin.startswith('q_'):
-        return {'B': 'input', 'C': 'input', 'E': 'output'}[assign.pin.name]
-    if skin == 'v' or skin == 'i':
-        return {'+': 'input', '-': 'output'}[assign.pin.name]
-    if skin == 'op':
-        return {'VCC': 'input', 'VEE': 'output', '+': 'input', '-': 'input', 'OUT': 'output'}[assign.pin.name]
-    if skin == 'xtal':
-        return {'A': 'input', 'B': 'output'}[assign.pin.name]
-    if skin == 'transformer_1p_1s':
-        return {'L1.1': 'input', 'L1.2': 'input', 'L2.1': 'output', 'L2.2': 'output'}[assign.pin.name]
-    if assign.erc_type == ERCType.INPUT:
-        return 'input'
-    elif assign.erc_type == ERCType.OUTPUT:
-        return 'output'
-    else:
-        print('Warn: Pin %s has no direction!' % assign.pin.name)
-
-
-def gnd(conn):
+def gnd(name, conn):
     return {
-        'type': 'gnd',
-        'port_directions': {
-            'A': 'input'
-        },
+        'type': 'ground',
         'connections': {
-            'A': [conn]
+            'GND': [conn]
+        },
+        'attributes': {
+            'value': name,
         }
     }
 
 
-def vcc(conn):
+def vcc(name, conn):
     return {
-        'type': 'vcc',
-        'port_directions': {
-            'A': 'output'
-        },
+        'type': 'power',
         'connections': {
-            'A': [conn]
+            'VCC': [conn]
+        },
+        'attributes': {
+            'value': name,
         }
     }
 
 
-def vee(conn):
+def vee(name, conn):
     return {
-        'type': 'vee',
-        'port_directions': {
-            'A': 'input'
-        },
+        'type': 'power',
         'connections': {
-            'A': [conn]
+            'VCC': [conn]
+        },
+        'attributes': {
+            'value': name,
         }
     }
 
@@ -105,27 +78,40 @@ def to_yosys(self):
         port_directions = {}
         for assign in inst.assigns:
             uid = UID.uid()
+            net_name = assign.net.name
             net_type = assign.net.type
             if net_type == NetType.GND:
-                cells['gnd' + str(uid)] = gnd(uid)
+                cells['gnd' + str(uid)] = gnd(net_name, uid)
                 connections[assign.pin.name] = [uid]
             elif net_type == NetType.VCC:
-                cells['vcc' + str(uid)] = vcc(uid)
+                cells['vcc' + str(uid)] = vcc(net_name, uid)
                 connections[assign.pin.name] = [uid]
             elif net_type == NetType.VEE:
-                cells['vee' + str(uid)] = vee(uid)
+                cells['vee' + str(uid)] = vee(net_name, uid)
                 connections[assign.pin.name] = [uid]
             else:
                 connections[assign.pin.name] = [assign.net.uid]
 
+
+            if assign.erc_type == ERCType.INPUT:
+                port_directions[assign.pin.name] = 'input'
+            elif assign.erc_type == ERCType.OUTPUT:
+                port_directions[assign.pin.name] = 'output'
+            else:
+                print('Guessing pin direction')
+                port_directions[assign.pin.name] = 'output'
+
+
             skin = match_skin(inst)
-            port_directions[assign.pin.name] = match_port_direction(
-                skin, assign)
+            value = inst.value or ' '
 
             cells[inst.name] = {
                 'type': match_skin(inst),
                 'port_directions': port_directions,
-                'connections': connections
+                'connections': connections,
+                'attributes': {
+                    'value': value,
+                }
             }
 
     ports = {}

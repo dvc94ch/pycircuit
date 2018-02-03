@@ -16,7 +16,7 @@ def get_node_module(name):
 
 def netlistsvg(filein, fileout):
     module = get_node_module('netlistsvg')
-    skin = os.path.join(module, 'lib', 'analog.svg')
+    skin = os.path.join(pycircuitdir, 'qeda-default-skin.svg')
     netlistsvg = os.path.join(module, 'bin', 'netlistsvg.js')
     os.system('%s --skin %s %s -o %s' % (netlistsvg, skin, filein, fileout))
 
