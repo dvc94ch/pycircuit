@@ -7,9 +7,24 @@ from pycircuit.formats import *
 from pycircuit.pcb import Pcb
 
 
+pycircuitdir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+
+
+def get_node_module(name):
+    return os.path.join(pycircuitdir, 'node_modules', name)
+
+
 def netlistsvg(filein, fileout):
-    skin = '~/repos/netlistsvg/lib/analog.svg'
-    os.system('netlistsvg --skin %s %s -o %s' % (skin, filein, fileout))
+    module = get_node_module('netlistsvg')
+    skin = os.path.join(module, 'lib', 'analog.svg')
+    netlistsvg = os.path.join(module, 'bin', 'netlistsvg.js')
+    os.system('%s --skin %s %s -o %s' % (netlistsvg, skin, filein, fileout))
+
+
+def qeda(cmd):
+    module = get_node_module('qeda')
+    qeda = os.path.join(module, 'bin', 'qeda')
+    os.system('%s %s' % (qeda, cmd))
 
 
 def default_compile(filein, fileout):
