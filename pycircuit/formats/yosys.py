@@ -1,7 +1,15 @@
+import decimal
 import json
 from pycircuit.component import Pin
 from pycircuit.circuit import *
 from pycircuit.formats import extends
+
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, decimal.Decimal):
+            return float(o)
+        return super(DecimalEncoder, self).default(o)
 
 
 def match_skin(inst):
@@ -111,6 +119,7 @@ def to_yosys(self):
                 'connections': connections,
                 'attributes': {
                     'value': value,
+                    'electro-grammar': inst.eg,
                 }
             }
 
@@ -141,5 +150,5 @@ def to_yosys(self):
 @extends(Circuit)
 def to_yosys_file(self, path):
     with open(path, 'w+') as f:
-        f.write(json.dumps(self.to_yosys(), sort_keys=True,
-                           indent=2, separators=(',', ': ')))
+        f.write(json.dumps(self.to_yosys(), cls=DecimalEncoder,
+                           sort_keys=True, indent=2, separators=(',', ': ')))

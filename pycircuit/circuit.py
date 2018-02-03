@@ -1,5 +1,6 @@
 import math
 import re
+import electro_grammar as eg
 from enum import Enum
 from pycircuit.component import Component, Pin, PinType
 from pycircuit.device import Device
@@ -174,7 +175,12 @@ class Inst(CircuitElement):
         self.component = Component.component_by_name(component)
 
     def set_value(self, value):
-        self.value = str(value) if value is not None else None
+        if value is not None:
+            self.value = str(value)
+            self.eg = eg.parse(self.value)
+        else:
+            self.value = None
+            self.eg = {}
 
     def assign_by_pin_name(self, pin_name):
         pin = self.component.pin_by_name(pin_name)
