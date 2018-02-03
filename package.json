@@ -1,0 +1,33 @@
+{
+  "name": "pycircuit2",
+  "version": "0.0.2",
+  "description": "Library for composing circuits and pcb layouts",
+  "main": "index.js",
+  "directories": {
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dvc94ch/pycircuit.git"
+  },
+  "keywords": [
+    "eda",
+    "cad",
+    "hdl",
+    "kicad"
+  ],
+  "author": "David Craven",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dvc94ch/pycircuit/issues"
+  },
+  "homepage": "https://github.com/dvc94ch/pycircuit#readme",
+  "dependencies": {
+    "netlistsvg": "git+https://github.com/nturley/netlistsvg.git",
+    "qeda": "git+https://github.com/qeda/qeda.git"
+  }
+}
