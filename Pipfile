@@ -10,6 +10,8 @@ name = "pypi"
 numpy = "*"
 pykicad = "*"
 shapely = "*"
+electro-grammar = {git = "https://github.com/monostable/electro-grammar.git", editable = true, ref = "antlr"}
+electro_grammar = {git = "https://github.com/monostable/electro-grammar.git", editable = true, ref = "antlr"}
 
 
 [dev-packages]

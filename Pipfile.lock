@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "08aa94e0e4afd72a99e6bf94d89960f1018b9a274b3db03c1fd391fca1a6f173"
+            "sha256": "3b2b70ed3284895645a1dc485fd78130575b3dfd65b768796fdaf7ebaaf502d4"
         },
         "host-environment-markers": {
             "implementation_name": "cpython",
@@ -29,6 +29,18 @@
         ]
     },
     "default": {
+        "antlr4-python3-runtime": {
+            "hashes": [
+                "sha256:1b26b72c4492cef310542da10bf6b2ab4aa1775618fc6003f75b55ae9eaa3fd3"
+            ],
+            "version": "==4.7.1"
+        },
+        "electro-grammar": {
+            "editable": true,
+            "git": "https://github.com/monostable/electro-grammar.git",
+            "ref": "1a80e044db0ed5c221214da8062a47e1fadfa8b0",
+            "subdirectory": "python3"
+        },
         "numpy": {
             "hashes": [
                 "sha256:428cd3c0b197cf857671353d8c85833193921af9fafcc169a1f29c7185833d50",
