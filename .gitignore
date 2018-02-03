@@ -1,5 +1,15 @@
+# py
 __pycache__/
+.pytest_cache/
+pycircuit.egg-info/
 dist/
 MANIFEST
 .cache/
 *.pyc
+
+# js
+node_modules
+
+# pycircuit
+build/
+setup-env.sh
